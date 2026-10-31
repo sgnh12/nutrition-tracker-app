@@ -169,6 +169,11 @@
     details.manual summary::after { content: ''; width: 8px; height: 8px; margin: 0 4px 3px 12px; flex: none; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.15s; }
     details.manual[open] summary::after { transform: rotate(-135deg); margin-bottom: -3px; }
     details.manual .field-grid { margin-top: 10px; }
+    details.registered { margin-top: 0; border-top: none; padding-top: 0; }
+    details.registered ul { margin-top: 6px; }
+    /* 一覧は開いたとき、上の行から順に、早めにふわっと表示する */
+    @keyframes row-in { from { opacity: 0; } to { opacity: 1; } }
+    details.registered[open] li { animation: row-in 0.22s ease-out both; animation-delay: calc(var(--i, 0) * 35ms); }
 
     /* ---- Calendar ---- */
     .cal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -246,6 +251,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .ring .arc { animation: none; }
+      details.registered[open] li { animation: none; }
     }
   </style>
 </head>
@@ -327,6 +333,25 @@
     </section>
 
     <section id="tab-settings" class="tab-panel">
+      <h2 class="section-title">食品マスタ</h2>
+      <div class="card">
+        <div class="field-grid">
+          <label class="field"><span>食品名</span><input id="master-food-name" placeholder="例: プロテイン"></label>
+          <label class="field"><span>単位</span><input id="master-unit-name" placeholder="例: 杯, 個"></label>
+          <label class="field"><span>カロリー (kcal/単位)</span><input id="master-calories" type="number" inputmode="decimal"></label>
+          <label class="field"><span>タンパク質 (g/単位)</span><input id="master-protein" type="number" inputmode="decimal"></label>
+          <label class="field"><span>脂質 (g/単位)</span><input id="master-fat" type="number" inputmode="decimal"></label>
+          <label class="field"><span>炭水化物 (g/単位)</span><input id="master-carbs" type="number" inputmode="decimal"></label>
+        </div>
+        <button class="btn btn-primary btn-block" id="master-save">食品を登録</button>
+      </div>
+      <div class="card">
+        <details class="manual registered">
+          <summary>登録済み食品一覧</summary>
+          <ul id="master-list"></ul>
+        </details>
+      </div>
+
       <div class="card">
         <h2 class="section-title">プロフィール</h2>
         <div class="field-grid">
@@ -371,21 +396,6 @@
         <div id="nutrient-status" class="status" role="status"></div>
       </div>
 
-      <h2 class="section-title">食品マスタ</h2>
-      <div class="card">
-        <div class="field-grid">
-          <label class="field"><span>食品名</span><input id="master-food-name" placeholder="例: プロテイン"></label>
-          <label class="field"><span>単位</span><input id="master-unit-name" placeholder="例: 杯, 個"></label>
-          <label class="field"><span>カロリー (kcal/単位)</span><input id="master-calories" type="number" inputmode="decimal"></label>
-          <label class="field"><span>タンパク質 (g/単位)</span><input id="master-protein" type="number" inputmode="decimal"></label>
-          <label class="field"><span>脂質 (g/単位)</span><input id="master-fat" type="number" inputmode="decimal"></label>
-          <label class="field"><span>炭水化物 (g/単位)</span><input id="master-carbs" type="number" inputmode="decimal"></label>
-        </div>
-        <button class="btn btn-primary btn-block" id="master-save">食品を登録</button>
-      </div>
-      <div class="card">
-        <ul id="master-list"></ul>
-      </div>
     </section>
   </main>
   <nav class="tabbar" aria-label="メインメニュー">
@@ -1095,8 +1105,8 @@
           ul.innerHTML = '<li class="muted">登録済みの食品はまだありません。</li>';
           return;
         }
-        ul.innerHTML = foods.map(function (f) {
-          return '<li class="master-row"><span class="item-name">' + escapeHtml(f.foodName) +
+        ul.innerHTML = foods.map(function (f, i) {
+          return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><span class="item-name">' + escapeHtml(f.foodName) +
             ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + formatNumber(f.calories) + ' kcal</span></span>' +
             '<button data-name="' + escapeHtml(f.foodName) + '" class="btn-text master-delete">削除</button></li>';
         }).join('');
