@@ -552,8 +552,40 @@
       };
     }
 
+    // ---- 画面データの保持 ----
+    // 一度読んだ内容を覚えておき、タブを開いたらまず覚えている内容を表示して、裏で取り直した最新で差し替える。
+    // 保存などの書き込みをしたら、覚えている内容はすべて捨てる(古い内容を見せないため)
+    var viewCache = {};
+    var viewSeq = {};
+    var viewEpoch = 0;
+    function invalidateViews() { viewCache = {}; viewEpoch++; }
+
+    // fetcher(success, failure) の中で google.script.run を呼ぶ。
+    // options.canRender: 取り直した内容で差し替えてよいか(入力中の欄を消さないため) / quiet: 失敗を知らせない / onLoaded: 取得後に呼ぶ
+    function loadView(key, fetcher, render, failMessage, options) {
+      var opts = options || {};
+      var seq = (viewSeq[key] || 0) + 1;
+      viewSeq[key] = seq;
+      var epoch = viewEpoch;
+      var shown = null;
+      var cached = viewCache[key];
+      if (cached) { render(cached.data); shown = cached.json; }
+      fetcher(function (data) {
+        if (viewSeq[key] !== seq) return; // 後から始めた読み込みがあれば、古い方の結果は使わない
+        var json = JSON.stringify(data);
+        if (epoch === viewEpoch) viewCache[key] = { data: data, json: json }; // 読み込み中に保存があったら、覚えない
+        if (json !== shown && !(shown !== null && opts.canRender && !opts.canRender())) render(data);
+        if (opts.onLoaded) opts.onLoaded();
+      }, opts.quiet ? function () {} : failHandler(failMessage));
+    }
+
     function loadDashboard() {
-      google.script.run.withSuccessHandler(function (data) {
+      loadView('dashboard', function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getDashboardData();
+      }, renderDashboard, 'ダッシュボードの読み込みに失敗しました。再度お試しください。', { onLoaded: prefetchViews });
+    }
+
+    function renderDashboard(data) {
         if (!data.profile) {
           document.getElementById('dashboard-empty').style.display = 'block';
           document.getElementById('dashboard-pies').innerHTML = '';
@@ -568,19 +600,33 @@
         }).join('');
         document.getElementById('dashboard-pies').innerHTML = html;
         document.getElementById('dashboard-today-list').innerHTML = renderTodayMealsList(data.todayIntake);
-      }).withFailureHandler(failHandler('ダッシュボードの読み込みに失敗しました。再度お試しください。')).getDashboardData();
+    }
+
+    // 起動後、ほかのタブの内容も裏で先に読んでおく(初めて開いたときに待たせないため)
+    var prefetched = false;
+    function prefetchViews() {
+      if (prefetched) return;
+      prefetched = true;
+      loadFoodMasterIntoSelect(true);
+      loadCalendarNutrientOptions(true);
+      loadSettingsPanel(true);
     }
 
     var recordItems = [];
     var foodMasterCache = [];
 
-    function loadFoodMasterIntoSelect() {
-      google.script.run.withSuccessHandler(function (foods) {
+    function loadFoodMasterIntoSelect(quiet) {
+      loadView('foods', function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getFoodMaster();
+      }, function (foods) {
         foodMasterCache = foods;
         var select = document.getElementById('record-food-select');
         select.innerHTML = '<option value="">-- 食品マスタから選択 --</option>' +
           foods.map(function (f) { return '<option value="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + ' (' + escapeHtml(f.unitName) + ')</option>'; }).join('');
-      }).withFailureHandler(failHandler('食品マスタの読み込みに失敗しました。再度お試しください。')).getFoodMaster();
+      }, '食品マスタの読み込みに失敗しました。再度お試しください。', {
+        quiet: quiet,
+        canRender: function () { return !document.getElementById('record-food-select').value; }
+      });
     }
 
     var recordSubmitting = false;
@@ -657,8 +703,10 @@
       recordSubmitting = true;
       syncRecordButtons();
       document.getElementById('record-status').textContent = '';
+      invalidateViews();
       google.script.run.withSuccessHandler(function () {
         recordSubmitting = false;
+        invalidateViews();
         syncRecordButtons();
         document.getElementById('record-status').textContent = item.foodName + 'を記録しました';
         if (onSuccess) onSuccess();
@@ -700,8 +748,10 @@
       if (recordItems.length === 0) return;
       recordSubmitting = true;
       renderRecordList();
+      invalidateViews();
       google.script.run.withSuccessHandler(function (result) {
         recordSubmitting = false;
+        invalidateViews();
         document.getElementById('record-status').textContent = result.itemCount + '件記録しました';
         recordItems = [];
         renderRecordList();
@@ -712,15 +762,24 @@
       }).recordMeal(recordItems);
     });
 
-    function loadCalendarNutrientOptions() {
-      google.script.run.withSuccessHandler(function (settings) {
+    var CALENDAR_FAIL_MESSAGE = 'カレンダーの読み込みに失敗しました。再度お試しください。';
+
+    // 栄養素の一覧と、先頭の栄養素の月の達成状況を、1回の通信でまとめて読む
+    function loadCalendarNutrientOptions(quiet) {
+      var yearMonth = currentYearMonth();
+      loadView('calendar:' + yearMonth, function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getCalendarData(yearMonth);
+      }, function (data) {
         var select = document.getElementById('calendar-nutrient-select');
-        var tracked = settings.filter(function (s) { return s.tracked; });
+        var tracked = data.settings.filter(function (s) { return s.tracked; });
         select.innerHTML = tracked.map(function (s) {
           return '<option value="' + escapeHtml(s.nutrientName) + '">' + escapeHtml(NUTRIENT_LABEL[s.nutrientName] || s.nutrientName) + '</option>';
         }).join('');
-        if (tracked.length > 0) loadCalendarGrid(tracked[0].nutrientName);
-      }).withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
+        if (!data.nutrientName) return;
+        setCalendarMonthLabel(yearMonth);
+        if (data.achievement === null) { failHandler(CALENDAR_FAIL_MESSAGE)(); return; }
+        renderCalendarGrid(data.achievement);
+      }, CALENDAR_FAIL_MESSAGE, { quiet: quiet });
     }
 
     function currentYearMonth() {
@@ -736,11 +795,18 @@
       return now.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
     }
 
-    function loadCalendarGrid(nutrientName) {
-      var yearMonth = currentYearMonth();
+    function setCalendarMonthLabel(yearMonth) {
       document.getElementById('calendar-month').textContent =
         yearMonth.split('-')[0] + '年' + Number(yearMonth.split('-')[1]) + '月';
-      google.script.run.withSuccessHandler(function (achievementByDate) {
+    }
+
+    function loadCalendarGrid(nutrientName) {
+      var yearMonth = currentYearMonth();
+      setCalendarMonthLabel(yearMonth);
+      google.script.run.withSuccessHandler(renderCalendarGrid).withFailureHandler(failHandler(CALENDAR_FAIL_MESSAGE)).getMonthAchievement(yearMonth, nutrientName);
+    }
+
+    function renderCalendarGrid(achievementByDate) {
         var grid = document.getElementById('calendar-grid');
         var dates = Object.keys(achievementByDate).sort();
         var today = todayDateString();
@@ -761,7 +827,6 @@
         var tail = (7 - ((offsetCount + dates.length) % 7)) % 7;
         for (var j = 0; j < tail; j++) html += '<div class="day"></div>';
         grid.innerHTML = html;
-      }).withFailureHandler(failHandler('カレンダーの読み込みに失敗しました。再度お試しください。')).getMonthAchievement(yearMonth, nutrientName);
     }
 
     document.getElementById('calendar-nutrient-select').addEventListener('change', function (e) {
@@ -777,8 +842,25 @@
       if (radio) radio.checked = true;
     }
 
-    function loadSettingsPanel() {
-      google.script.run.withSuccessHandler(function (profile) {
+    // プロフィール・栄養素設定・食品マスタを、1回の通信でまとめて読む
+    function loadSettingsPanel(quiet) {
+      loadView('settingsPanel', function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getSettingsPanelData();
+      }, function (data) {
+        renderProfile(data.profile);
+        renderNutrientSettingsList(data.settings);
+        renderFoodMasterList(data.foods);
+      }, '設定の読み込みに失敗しました。再度お試しください。', {
+        quiet: quiet,
+        // 入力中の欄がある間は、取り直した内容で書き換えない
+        canRender: function () {
+          var a = document.activeElement;
+          return !(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && document.getElementById('tab-settings').contains(a));
+        }
+      });
+    }
+
+    function renderProfile(profile) {
         if (profile) {
           document.getElementById('profile-height').value = profile.heightCm;
           document.getElementById('profile-weight').value = profile.weightKg;
@@ -787,9 +869,6 @@
           document.getElementById('profile-activity').value = profile.activityLevel;
           setProfileGoal(profile.goalType);
         }
-      }).withFailureHandler(failHandler('プロフィールの読み込みに失敗しました。再度お試しください。')).getProfile();
-      loadNutrientSettingsList();
-      loadFoodMasterList();
     }
 
     document.getElementById('profile-save').addEventListener('click', function () {
@@ -803,8 +882,10 @@
       };
       var btn = document.getElementById('profile-save');
       btn.disabled = true;
+      invalidateViews();
       google.script.run.withSuccessHandler(function () {
         btn.disabled = false;
+        invalidateViews();
         document.getElementById('profile-status').textContent = '保存し、目標値を更新しました';
         loadNutrientSettingsList();
       }).withFailureHandler(function () {
@@ -917,7 +998,11 @@
     });
 
     function loadNutrientSettingsList() {
-      google.script.run.withSuccessHandler(function (settings) {
+      google.script.run.withSuccessHandler(renderNutrientSettingsList)
+        .withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
+    }
+
+    function renderNutrientSettingsList(settings) {
         var ul = document.getElementById('nutrient-settings-list');
         ul.innerHTML = settings.map(function (s, i) {
           return '<li class="nutrient-row">' +
@@ -943,16 +1028,21 @@
               criterion: document.querySelector('.nutrient-criterion[data-index="' + i + '"]').value
             };
           });
+          invalidateViews();
           google.script.run.withSuccessHandler(function () {
+            invalidateViews();
             document.getElementById('error-toast').style.display = 'none';
             document.getElementById('nutrient-status').textContent = '保存しました';
           }).withFailureHandler(failHandler('栄養素設定の保存に失敗しました。再度お試しください。')).saveNutrientSettings(updated);
         });
-      }).withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
     }
 
     function loadFoodMasterList() {
-      google.script.run.withSuccessHandler(function (foods) {
+      google.script.run.withSuccessHandler(renderFoodMasterList)
+        .withFailureHandler(failHandler('食品マスタの読み込みに失敗しました。再度お試しください。')).getFoodMaster();
+    }
+
+    function renderFoodMasterList(foods) {
         var ul = document.getElementById('master-list');
         if (foods.length === 0) {
           ul.innerHTML = '<li class="muted">登録済みの食品はまだありません。</li>';
@@ -965,10 +1055,10 @@
         }).join('');
         document.querySelectorAll('.master-delete').forEach(function (btn) {
           btn.addEventListener('click', function () {
-            google.script.run.withSuccessHandler(function () { loadFoodMasterList(); }).withFailureHandler(failHandler('食品の削除に失敗しました。再度お試しください。')).deleteFoodMasterItem(btn.dataset.name);
+            invalidateViews();
+            google.script.run.withSuccessHandler(function () { invalidateViews(); loadFoodMasterList(); }).withFailureHandler(failHandler('食品の削除に失敗しました。再度お試しください。')).deleteFoodMasterItem(btn.dataset.name);
           });
         });
-      }).withFailureHandler(failHandler('食品マスタの読み込みに失敗しました。再度お試しください。')).getFoodMaster();
     }
 
     document.getElementById('master-save').addEventListener('click', function () {
@@ -984,8 +1074,10 @@
       if (!item.foodName) return;
       var btn = document.getElementById('master-save');
       btn.disabled = true;
+      invalidateViews();
       google.script.run.withSuccessHandler(function () {
         btn.disabled = false;
+        invalidateViews();
         loadFoodMasterList();
         document.getElementById('master-food-name').value = '';
         document.getElementById('master-unit-name').value = '';
