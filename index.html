@@ -38,7 +38,7 @@
     * { box-sizing: border-box; }
     html { touch-action: manipulation; }
     body {
-      margin: 0; padding-bottom: 96px;
+      margin: 0; padding-bottom: 120px;
       background: var(--ground); color: var(--ink);
       font-family: var(--font-body); font-size: 15px; line-height: 1.6;
     }
@@ -195,7 +195,7 @@
     nav.tabbar {
       position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center;
       background: rgba(255,255,255,0.94); backdrop-filter: blur(8px);
-      border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+      border-top: 1px solid var(--line); padding: 6px 0 calc(env(safe-area-inset-bottom) + 18px);
     }
     nav.tabbar button {
       flex: 1; max-width: 160px; min-height: 56px; border: none; background: none; cursor: pointer;
