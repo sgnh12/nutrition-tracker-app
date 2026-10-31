@@ -1,30 +1,987 @@
-<!doctype html>
+<!-- 自動生成: src/web/index.html から scripts/build-pwa.js が作ったファイル。直接は編集しない -->
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nutrition Tracker</title>
   <meta name="theme-color" content="#edf1f4">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Nutrition Tracker">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="gas-shim.js"></script>
+  <base target="_top">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    html, body { margin: 0; height: 100%; background: #edf1f4; }
-    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+    :root {
+      --ground: #edf1f4;
+      --surface: #ffffff;
+      --ink: #101b24;
+      --ink-soft: #4a5b69;
+      --muted: #5e6e7a;
+      --line: #d5dde3;
+      --track: #e3e9ed;
+      --c-calories: #1f8a5b;
+      --c-protein: #2e5bff;
+      --c-fat: #e89b00;
+      --c-carbs: #f0583a;
+      --danger: #c93a24;
+      --font-display: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      --font-body: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding-bottom: 96px;
+      background: var(--ground); color: var(--ink);
+      font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+    }
+    h2, h3 { margin: 0; }
+    button, input, select { font: inherit; color: inherit; }
+    :focus-visible { outline: 3px solid var(--c-protein); outline-offset: 2px; }
+
+    /* ---- Header ---- */
+    header.app-header {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 20px 16px 8px; max-width: 640px; margin: 0 auto;
+    }
+    .app-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -0.01em; }
+    .app-date { font-family: var(--font-display); font-weight: 500; font-size: 0.95rem; color: var(--muted); }
+    main { max-width: 640px; margin: 0 auto; padding: 8px 16px 16px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- Cards & type ---- */
+    .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 0 var(--line); }
+    .section-title { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin: 22px 0 10px; }
+    .card .section-title:first-child { margin-top: 0; }
+    .muted { color: var(--muted); }
+    .num { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+    .status { min-height: 1.4em; margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+
+    /* ---- Buttons & fields ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1.5px solid var(--ink);
+      background: transparent; font-weight: 700; cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn-primary { background: var(--ink); color: #fff; }
+    .btn-block { width: 100%; margin-top: 12px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-row .btn { flex: 1; }
+    .btn-text { border: none; background: none; min-height: 36px; padding: 0 8px; color: var(--muted); font-weight: 500; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .btn-text:hover { color: var(--danger); }
+    input, select {
+      width: 100%; height: 44px; min-height: 44px; padding: 0 12px;
+      border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface);
+    }
+    select {
+      -webkit-appearance: none; appearance: none; padding-right: 36px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%235e6e7a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center; background-size: 12px 8px;
+    }
+    input::placeholder { color: #9aa8b2; }
+    .field { display: block; }
+    .field > span { display: block; margin-bottom: 4px; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field-grid .span-2 { grid-column: 1 / -1; }
+    .goal-row { display: flex; align-items: center; gap: 16px; }
+    .goal-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    .segmented { display: flex; flex: 1; gap: 8px; }
+    .segmented label { position: relative; flex: 1; }
+    .segmented input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; border: none; opacity: 0; cursor: pointer; }
+    .segmented span { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--surface); color: #8795a0; font-weight: 700; transition: border-color 0.15s, box-shadow 0.15s, color 0.15s; }
+    .segmented input:checked + span { border-color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--ink-soft); color: var(--ink); }
+    .segmented input:focus-visible + span { outline: 3px solid var(--c-protein); outline-offset: 2px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > select { flex: 1; min-width: 0; }
+    .row > input { width: 84px; flex: none; }
+
+    /* ---- Dashboard rings ---- */
+    .pie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-bottom: 4px; }
+    .pie-card {
+      --accent: var(--ink);
+      background: var(--surface); border-radius: var(--radius); padding: 14px 8px 12px;
+      text-align: center; box-shadow: 0 1px 0 var(--line);
+    }
+    .pie-card[data-nutrient="calories"] { --accent: var(--c-calories); }
+    .pie-card[data-nutrient="protein"] { --accent: var(--c-protein); }
+    .pie-card[data-nutrient="fat"] { --accent: var(--c-fat); }
+    .pie-card[data-nutrient="carbs"] { --accent: var(--c-carbs); }
+    .ring { position: relative; width: 84px; height: 84px; margin: 0 auto; }
+    .ring svg { width: 100%; height: 100%; display: block; }
+    .ring .track { stroke: var(--track); }
+    .ring .arc { stroke: var(--accent); stroke-linecap: round; animation: ring-in 0.9s cubic-bezier(.2,.7,.2,1); }
+    @keyframes ring-in { from { stroke-dasharray: 0 251.33; } }
+    .ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; line-height: 1.1; }
+    .ring-center .lead { position: absolute; top: 20%; left: 0; right: 0; text-align: center; font-size: 0.65rem; color: var(--muted); }
+    .ring-center .valrow { position: relative; }
+    .ring-center .big { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+    .ring-center .unit { position: absolute; left: 100%; bottom: 0.1em; margin-left: 1px; font-size: 0.6rem; color: var(--muted); }
+    .pie-card .label { margin-top: 8px; font-size: 0.82rem; font-weight: 700; }
+    .pie-card .sub { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .pie-card.over .big { color: var(--danger); }
+
+    .pie-card[data-nutrient="calories"] {
+      grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; text-align: left; padding: 18px 20px;
+    }
+    .pie-card[data-nutrient="calories"] .ring { width: 124px; height: 124px; margin: 0; flex: none; }
+    .pie-card[data-nutrient="calories"] .ring-center .big { font-size: 1.6rem; }
+    .pie-card[data-nutrient="calories"] .ring-center .lead { top: 25%; font-size: 0.72rem; }
+    .pie-card[data-nutrient="calories"] .ring-center .unit { left: 50%; bottom: auto; top: 100%; margin: 1px 0 0; transform: translateX(calc(-30% + 12px)); font-size: 0.65rem; }
+    .hero-text .eyebrow { font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+    .hero-text .remain { font-family: var(--font-display); font-weight: 700; font-size: 3rem; line-height: 1; letter-spacing: -0.03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .hero-text .remain small { font-size: 1rem; font-weight: 500; letter-spacing: 0; margin-left: 4px; color: var(--muted); }
+    .hero-text .detail { margin-top: 6px; font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    /* ---- Meals ---- */
+    .meal-group { background: var(--surface); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 0 var(--line); }
+    .meal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .meal-time { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+    .meal-total { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .item-list { list-style: none; margin: 0; padding: 0; }
+    .item-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+    .item-list li:first-child { border-top: none; }
+    .item-name { min-width: 0; overflow-wrap: anywhere; }
+    .item-meta { color: var(--muted); font-size: 0.82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+    .empty .btn { margin-top: 12px; }
+
+    /* ---- Record ---- */
+    details.manual { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+    details.manual summary { cursor: pointer; font-weight: 700; min-height: 36px; display: flex; align-items: center; justify-content: space-between; list-style: none; }
+    details.manual summary::-webkit-details-marker { display: none; }
+    details.manual summary::after { content: ''; width: 8px; height: 8px; margin: 0 4px 3px 12px; flex: none; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.15s; }
+    details.manual[open] summary::after { transform: rotate(-135deg); margin-bottom: -3px; }
+    details.manual .field-grid { margin-top: 10px; }
+
+    /* ---- Calendar ---- */
+    .cal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .cal-head select { width: auto; flex: 1; max-width: 220px; }
+    .cal-month { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; }
+    .cal-week, #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+    .cal-week { font-size: 0.72rem; font-weight: 700; color: var(--muted); padding-bottom: 6px; }
+    .cal-week span:first-child { color: var(--danger); }
+    #calendar-grid { border-top: 1px solid var(--line); }
+    .day { height: 56px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); font-family: var(--font-display); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .day:nth-child(7n) { border-right: none; }
+    .day span { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .day.future { color: #aab6bf; }
+    .day.today { font-weight: 700; }
+    .day.achieved span { background: #d6ec9f; }
+    .cal-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.8rem; color: var(--muted); }
+    .cal-legend i { width: 14px; height: 14px; border-radius: 50%; background: #d6ec9f; }
+
+    /* ---- Settings lists ---- */
+    #nutrient-settings-list, #master-list { list-style: none; margin: 0; padding: 0; }
+    .nutrient-row { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+    .nutrient-row:first-child { border-top: none; }
+    .nutrient-row label.check { display: flex; align-items: center; gap: 8px; font-weight: 700; min-height: 44px; }
+    .nutrient-row input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-color: var(--c-calories); }
+    .nutrient-row .target-box { display: flex; gap: 6px; align-items: center; grid-column: 1 / -1; }
+    .nutrient-row .target-box input { width: 96px; }
+    .nutrient-row .target-box select { width: 140px; }
+    .master-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+    .master-row:first-child { border-top: none; }
+
+    /* ---- Tab bar & toast ---- */
+    nav.tabbar {
+      position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(8px);
+      border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+    }
+    nav.tabbar button {
+      flex: 1; max-width: 160px; min-height: 56px; border: none; background: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      font-size: 0.68rem; font-weight: 500; color: var(--muted);
+    }
+    nav.tabbar svg { width: 44px; height: 44px; padding: 9px; border-radius: 50%; transition: background-color 0.15s; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    nav.tabbar button.active { color: var(--ink); font-weight: 700; }
+    nav.tabbar button:hover svg { background: #f1f4f6; }
+    nav.tabbar button.active svg { stroke-width: 2.4; background: #e3e8ec; }
+    .status-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .status-row .status { flex: 1; }
+    .icon-btn { flex: none; width: 40px; height: 40px; margin-top: 2px; border: none; border-radius: 50%; background: none; color: var(--ink-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.15s; }
+    .icon-btn:hover { background: #f1f4f6; }
+    .icon-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .modal { display: none; position: fixed; inset: 0; z-index: 20; background: rgba(16,27,36,0.5); align-items: center; justify-content: center; padding: 16px; }
+    .modal.open { display: flex; }
+    .modal-panel { display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 100%; background: var(--surface); border-radius: 16px; overflow: hidden; }
+    .modal-head { padding: 16px 20px 8px; font-weight: 700; font-size: 1.05rem; }
+    .modal-body { padding: 4px 20px 16px; overflow-y: auto; }
+    .modal-foot { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
+    .modal-foot .btn { flex: 1; }
+    .btn.btn-save:disabled { opacity: 1; background: #d5dde3; color: #8795a0; }
+    .logic-note { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+    .logic-block { padding: 12px 0; border-top: 1px solid var(--line); }
+    .logic-block h3 { margin: 0 0 8px; font-size: 0.9rem; }
+    .logic-formula { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; line-height: 1.4; font-size: 0.9rem; }
+    .logic-formula .fixed, .logic-formula.fixed { color: var(--ink-soft); }
+    .logic-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; font-size: 0.9rem; }
+    .logic-formula input, .logic-grid input { width: 84px; height: 36px; min-height: 36px; padding: 0 8px; text-align: right; }
+    #error-toast {
+      display: none; position: fixed; left: 16px; right: 16px; bottom: 80px; max-width: 608px; margin: 0 auto;
+      padding: 12px 16px; background: var(--danger); color: #fff; border-radius: 10px; font-weight: 500; z-index: 10;
+    }
+
+    @media (max-width: 380px) {
+      .pie-card[data-nutrient="calories"] .ring { width: 104px; height: 104px; }
+      .hero-text .remain { font-size: 2.4rem; }
+      .pie-card[data-nutrient="calories"] .ring-center .big { font-size: 1.3rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ring .arc { animation: none; }
+    }
   </style>
 </head>
 <body>
-  <!-- 本体はGoogle Apps Scriptのウェブアプリ。このページはホーム画面用のアイコンと全画面表示を提供する入れ物 -->
-  <iframe id="app" title="Nutrition Tracker"
-          src="https://script.google.com/macros/s/AKfycbxMMQTRW8U_Vd5_gLs6oBp86hwoSA6W8EpG_iwgEk4P5ChBUwhGlXrlE6nDcEa4rHeh/exec"></iframe>
+  <header class="app-header">
+    <span class="app-title">Nutrition Tracker</span>
+    <span class="app-date" id="today-label"></span>
+  </header>
+  <div class="modal" id="logic-modal" role="dialog" aria-modal="true" aria-labelledby="logic-title">
+    <div class="modal-panel">
+      <div class="modal-head" id="logic-title">目標値の計算ロジック</div>
+      <div class="modal-body">
+        <p class="logic-note">数値を書き換えて保存すると、次回の「保存して目標値を再計算」からその計算式が使われます。</p>
+        <div id="logic-form"></div>
+        <div id="logic-status" class="status" role="status"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="logic-close">閉じる</button>
+        <button type="button" class="btn btn-primary btn-save" id="logic-save" disabled>保存</button>
+      </div>
+    </div>
+  </div>
+  <div id="error-toast" role="alert"></div>
+  <main>
+    <section id="tab-dashboard" class="tab-panel active">
+      <div id="dashboard-empty" class="card empty" style="display:none;">
+        <div>プロフィールが未設定です。身長・体重などを登録すると、1日の目標が自動で計算されます。</div>
+        <button class="btn btn-primary" id="goto-settings">設定を開く</button>
+      </div>
+      <div id="dashboard-pies" class="pie-grid"></div>
+      <h2 class="section-title">今日の記録</h2>
+      <div id="dashboard-today-list"></div>
+    </section>
+
+    <section id="tab-record" class="tab-panel">
+      <div class="card">
+        <h2 class="section-title">食品マスタから追加</h2>
+        <div class="row">
+          <select id="record-food-select" aria-label="食品"><option value="">-- 食品マスタから選択 --</option></select>
+          <input id="record-quantity" type="number" step="0.1" placeholder="個数" value="1" aria-label="個数">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="record-single-from-master">記録</button>
+          <button class="btn" id="record-add-from-master">リストに追加</button>
+        </div>
+        <details class="manual">
+          <summary>マスタにない食品を手入力で追加</summary>
+          <div class="field-grid">
+            <label class="field span-2"><span>食品名</span><input id="manual-food-name" placeholder="例: コンビニのおにぎり"></label>
+            <label class="field"><span>カロリー (kcal)</span><input id="manual-calories" type="number" inputmode="decimal"></label>
+            <label class="field"><span>タンパク質 (g)</span><input id="manual-protein" type="number" inputmode="decimal"></label>
+            <label class="field"><span>脂質 (g)</span><input id="manual-fat" type="number" inputmode="decimal"></label>
+            <label class="field"><span>炭水化物 (g)</span><input id="manual-carbs" type="number" inputmode="decimal"></label>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="record-single-manual">記録</button>
+            <button class="btn" id="record-add-manual">リストに追加</button>
+          </div>
+        </details>
+      </div>
+      <h2 class="section-title">今回の記録リスト</h2>
+      <div class="card">
+        <ul id="record-list" class="item-list"></ul>
+        <button class="btn btn-primary btn-block" id="record-submit">まとめて記録する</button>
+        <div id="record-status" class="status" role="status"></div>
+      </div>
+    </section>
+
+    <section id="tab-calendar" class="tab-panel">
+      <div class="card">
+        <div class="cal-head">
+          <span class="cal-month num" id="calendar-month"></span>
+          <select id="calendar-nutrient-select" aria-label="栄養素"></select>
+        </div>
+        <div class="cal-week" aria-hidden="true"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+        <div id="calendar-grid"></div>
+        <div class="cal-legend"><i></i>目標を達成した日</div>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="tab-panel">
+      <div class="card">
+        <h2 class="section-title">プロフィール</h2>
+        <div class="field-grid">
+          <label class="field"><span>身長 (cm)</span><input id="profile-height" type="number" inputmode="decimal"></label>
+          <label class="field"><span>体重 (kg)</span><input id="profile-weight" type="number" inputmode="decimal"></label>
+          <label class="field"><span>年齢</span><input id="profile-age" type="number" inputmode="numeric"></label>
+          <label class="field"><span>性別</span>
+            <select id="profile-sex">
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+            </select>
+          </label>
+          <label class="field span-2"><span>活動量</span>
+            <select id="profile-activity">
+              <option value="sedentary">座り仕事中心</option>
+              <option value="light">軽い運動</option>
+              <option value="moderate">中程度の運動</option>
+              <option value="active">活発</option>
+              <option value="very_active">非常に活発</option>
+            </select>
+          </label>
+          <div class="goal-row span-2" role="radiogroup" aria-labelledby="goal-label">
+            <span class="goal-label" id="goal-label">目標</span>
+            <div class="segmented">
+              <label><input type="radio" name="profile-goal" value="bulk" checked><span>増量</span></label>
+              <label><input type="radio" name="profile-goal" value="cut"><span>減量</span></label>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" id="profile-save">保存して目標値を再計算</button>
+        <div class="status-row">
+          <div id="profile-status" class="status" role="status"></div>
+          <button type="button" class="icon-btn" id="logic-open" aria-label="目標値の計算ロジックを表示・編集" title="計算ロジック">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <h2 class="section-title">追跡する栄養素</h2>
+      <div class="card">
+        <ul id="nutrient-settings-list"></ul>
+        <div id="nutrient-status" class="status" role="status"></div>
+      </div>
+
+      <h2 class="section-title">食品マスタ</h2>
+      <div class="card">
+        <div class="field-grid">
+          <label class="field"><span>食品名</span><input id="master-food-name" placeholder="例: プロテイン"></label>
+          <label class="field"><span>単位</span><input id="master-unit-name" placeholder="例: 杯, 個"></label>
+          <label class="field"><span>カロリー (kcal/単位)</span><input id="master-calories" type="number" inputmode="decimal"></label>
+          <label class="field"><span>タンパク質 (g/単位)</span><input id="master-protein" type="number" inputmode="decimal"></label>
+          <label class="field"><span>脂質 (g/単位)</span><input id="master-fat" type="number" inputmode="decimal"></label>
+          <label class="field"><span>炭水化物 (g/単位)</span><input id="master-carbs" type="number" inputmode="decimal"></label>
+        </div>
+        <button class="btn btn-primary btn-block" id="master-save">食品を登録</button>
+      </div>
+      <div class="card">
+        <ul id="master-list"></ul>
+      </div>
+    </section>
+  </main>
+  <nav class="tabbar" aria-label="メインメニュー">
+    <button data-tab="dashboard" aria-label="ダッシュボード" title="ダッシュボード" class="active">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8h-8z"/></svg>
+    </button>
+    <button data-tab="record" aria-label="記録" title="記録">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    </button>
+    <button data-tab="calendar" aria-label="カレンダー" title="カレンダー">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+    </button>
+    <button data-tab="settings" aria-label="設定" title="設定">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 17h14"/><circle cx="9" cy="7" r="2.2" fill="var(--surface)"/><circle cx="15" cy="17" r="2.2" fill="var(--surface)"/></svg>
+    </button>
+  </nav>
+
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+    var PIE_RADIUS = 40;
+    var PIE_CIRCUMFERENCE = 2 * Math.PI * PIE_RADIUS;
+
+    function computePieSlices(entry) {
+      var consumed = entry.consumed;
+      var target = entry.target;
+      var consumedRatio = target > 0 ? Math.min(consumed / target, 1) : 0;
+      var remainingRatio = 1 - consumedRatio;
+      var consumedArc = PIE_CIRCUMFERENCE * consumedRatio;
+      var remainingArc = PIE_CIRCUMFERENCE * remainingRatio;
+      return {
+        consumedRatio: consumedRatio,
+        remainingRatio: remainingRatio,
+        consumedDashArray: consumedArc + ' ' + PIE_CIRCUMFERENCE,
+        remainingDashArray: remainingArc + ' ' + PIE_CIRCUMFERENCE
+      };
     }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString('ja-JP');
+    }
+
+    var WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+    // GASはページをiframeで埋め込むため<html lang>が届かない場合がある。日本語の字形を確実に使うため実行時にも指定する
+    document.documentElement.lang = 'ja';
+    document.body.setAttribute('lang', 'ja');
+
+    (function showToday() {
+      var now = new Date();
+      document.getElementById('today-label').textContent =
+        (now.getMonth() + 1) + '月' + now.getDate() + '日(' + WEEKDAYS[now.getDay()] + ')';
+    })();
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-panel').forEach(function (el) {
+        el.classList.toggle('active', el.id === 'tab-' + tabName);
+      });
+      document.querySelectorAll('nav.tabbar button').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      if (tabName === 'dashboard') loadDashboard();
+      if (tabName === 'record') loadFoodMasterIntoSelect();
+      if (tabName === 'calendar') loadCalendarNutrientOptions();
+      if (tabName === 'settings') loadSettingsPanel();
+    }
+
+    document.querySelectorAll('nav.tabbar button').forEach(function (btn) {
+      btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+    });
+    document.getElementById('goto-settings').addEventListener('click', function () { switchTab('settings'); });
+
+    var NUTRIENT_TO_INTAKE_KEY = { calories: 'calories', protein: 'proteinG', fat: 'fatG', carbs: 'carbsG' };
+    var NUTRIENT_LABEL = { calories: 'カロリー', protein: 'タンパク質', fat: '脂質', carbs: '炭水化物' };
+    var NUTRIENT_UNIT = { calories: 'kcal', protein: 'g', fat: 'g', carbs: 'g' };
+
+    function renderPieCard(nutrientName, consumed, target) {
+      var slices = computePieSlices({ consumed: consumed, target: target });
+      var label = NUTRIENT_LABEL[nutrientName] || nutrientName;
+      var unit = NUTRIENT_UNIT[nutrientName] || '';
+      var remaining = target - consumed;
+      var over = remaining < 0;
+      var ring = '<div class="ring">' +
+        '<svg viewBox="0 0 100 100" aria-hidden="true">' +
+          '<circle class="track" cx="50" cy="50" r="' + PIE_RADIUS + '" fill="none" stroke-width="11"></circle>' +
+          (slices.consumedRatio > 0
+            ? '<circle class="arc" cx="50" cy="50" r="' + PIE_RADIUS + '" fill="none" stroke-width="11" ' +
+              'stroke-dasharray="' + slices.consumedDashArray + '" transform="rotate(-90 50 50)"></circle>'
+            : '') +
+        '</svg>';
+      var detail = '摂取 ' + formatNumber(consumed) + ' / 目標 ' + formatNumber(target) + ' ' + unit;
+      var cls = 'pie-card' + (over ? ' over' : '');
+      var aria = label + ' ' + detail;
+
+      if (nutrientName === 'calories') {
+        return '<div class="' + cls + '" data-nutrient="calories" role="group" aria-label="' + escapeHtml(aria) + '">' +
+          ring +
+            '<div class="ring-center"><span class="lead">' + (over ? '超過' : '残り') + '</span>' +
+            '<span class="valrow"><span class="big">' + formatNumber(Math.abs(Math.round(remaining))) + '</span>' +
+            '<span class="unit">kcal</span></span></div>' +
+          '</div>' +
+          '<div class="hero-text">' +
+            '<div class="eyebrow">現在</div>' +
+            '<div class="remain">' + formatNumber(consumed) + '<small>kcal</small></div>' +
+            '<div class="detail">目標 ' + formatNumber(target) + ' kcal</div>' +
+          '</div>' +
+        '</div>';
+      }
+      return '<div class="' + cls + '" data-nutrient="' + escapeHtml(nutrientName) + '" role="group" aria-label="' + escapeHtml(aria) + '">' +
+        ring +
+          '<div class="ring-center">' + (over ? '<span class="lead">超過</span>' : '') +
+          '<span class="valrow"><span class="big">' + formatNumber(Math.abs(Math.round(remaining))) + '</span>' +
+          '<span class="unit">' + escapeHtml(unit) + '</span></span></div>' +
+        '</div>' +
+        '<div class="label">' + escapeHtml(label) + '</div>' +
+        '<div class="sub">' + formatNumber(consumed) + ' / ' + formatNumber(target) + '</div>' +
+      '</div>';
+    }
+
+    function renderTodayMealsList(todayIntake) {
+      if (todayIntake.length === 0) return '<div class="card empty">まだ記録がありません。「記録」タブから今日の食事を追加してください。</div>';
+      var byMeal = {};
+      todayIntake.forEach(function (row) {
+        if (!byMeal[row.mealId]) byMeal[row.mealId] = { timestamp: row.timestamp, items: [] };
+        byMeal[row.mealId].items.push(row);
+      });
+      var mealIds = Object.keys(byMeal).sort(function (a, b) {
+        return new Date(byMeal[a].timestamp) - new Date(byMeal[b].timestamp);
+      });
+      return mealIds.map(function (mealId) {
+        var meal = byMeal[mealId];
+        var time = new Date(meal.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        var total = meal.items.reduce(function (sum, item) { return sum + Number(item.calories || 0); }, 0);
+        var itemsHtml = meal.items.map(function (item) {
+          return '<li><span class="item-name">' + escapeHtml(item.foodName) + '</span>' +
+            '<span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + formatNumber(item.calories) + ' kcal</span></li>';
+        }).join('');
+        return '<div class="meal-group"><div class="meal-head"><span class="meal-time">' + time + '</span>' +
+          '<span class="meal-total">' + formatNumber(total) + ' kcal</span></div>' +
+          '<ul class="item-list">' + itemsHtml + '</ul></div>';
+      }).join('');
+    }
+
+    var errorToastTimer = null;
+    function failHandler(message) {
+      return function () {
+        var toast = document.getElementById('error-toast');
+        toast.textContent = message;
+        toast.style.display = 'block';
+        clearTimeout(errorToastTimer);
+        errorToastTimer = setTimeout(function () { toast.style.display = 'none'; }, 5000);
+      };
+    }
+
+    function loadDashboard() {
+      google.script.run.withSuccessHandler(function (data) {
+        if (!data.profile) {
+          document.getElementById('dashboard-empty').style.display = 'block';
+          document.getElementById('dashboard-pies').innerHTML = '';
+          document.getElementById('dashboard-today-list').innerHTML = '';
+          return;
+        }
+        document.getElementById('dashboard-empty').style.display = 'none';
+        var html = data.settings.filter(function (s) { return s.tracked; }).map(function (s) {
+          var intakeKey = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
+          var consumed = data.todayIntake.reduce(function (sum, row) { return sum + Number(row[intakeKey] || 0); }, 0);
+          return renderPieCard(s.nutrientName, consumed, Number(s.targetValue));
+        }).join('');
+        document.getElementById('dashboard-pies').innerHTML = html;
+        document.getElementById('dashboard-today-list').innerHTML = renderTodayMealsList(data.todayIntake);
+      }).withFailureHandler(failHandler('ダッシュボードの読み込みに失敗しました。再度お試しください。')).getDashboardData();
+    }
+
+    var recordItems = [];
+    var foodMasterCache = [];
+
+    function loadFoodMasterIntoSelect() {
+      google.script.run.withSuccessHandler(function (foods) {
+        foodMasterCache = foods;
+        var select = document.getElementById('record-food-select');
+        select.innerHTML = '<option value="">-- 食品マスタから選択 --</option>' +
+          foods.map(function (f) { return '<option value="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + ' (' + escapeHtml(f.unitName) + ')</option>'; }).join('');
+      }).withFailureHandler(failHandler('食品マスタの読み込みに失敗しました。再度お試しください。')).getFoodMaster();
+    }
+
+    var recordSubmitting = false;
+
+    // 送信中は二重送信を防ぐためすべての記録ボタンを止める。まとめて記録はリストが空のときも止める
+    function syncRecordButtons() {
+      document.getElementById('record-submit').disabled = recordSubmitting || recordItems.length === 0;
+      document.getElementById('record-single-from-master').disabled = recordSubmitting;
+      document.getElementById('record-single-manual').disabled = recordSubmitting;
+    }
+
+    function renderRecordList() {
+      var ul = document.getElementById('record-list');
+      syncRecordButtons();
+      if (recordItems.length === 0) {
+        ul.innerHTML = '<li class="muted">リストは空です。食品を追加してください。</li>';
+        return;
+      }
+      ul.innerHTML = recordItems.map(function (item, i) {
+        return '<li><span class="item-name">' + escapeHtml(item.foodName) +
+          ' <span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + formatNumber(item.calories) + ' kcal</span></span>' +
+          '<button data-index="' + i + '" class="btn-text record-remove">削除</button></li>';
+      }).join('');
+      document.querySelectorAll('.record-remove').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          recordItems.splice(Number(btn.dataset.index), 1);
+          renderRecordList();
+        });
+      });
+    }
+    renderRecordList();
+
+    function buildMasterItem() {
+      var foodName = document.getElementById('record-food-select').value;
+      var quantity = Number(document.getElementById('record-quantity').value);
+      if (!foodName || !quantity) return null;
+      var food = foodMasterCache.filter(function (f) { return f.foodName === foodName; })[0];
+      if (!food) return null;
+      return {
+        foodName: food.foodName,
+        quantity: quantity,
+        calories: Math.round(food.calories * quantity),
+        proteinG: Math.round(food.proteinG * quantity),
+        fatG: Math.round(food.fatG * quantity),
+        carbsG: Math.round(food.carbsG * quantity),
+        otherNutrientsJson: food.otherNutrientsJson || '{}'
+      };
+    }
+
+    function buildManualItem() {
+      var foodName = document.getElementById('manual-food-name').value;
+      if (!foodName) return null;
+      return {
+        foodName: foodName,
+        quantity: 1,
+        calories: Number(document.getElementById('manual-calories').value) || 0,
+        proteinG: Number(document.getElementById('manual-protein').value) || 0,
+        fatG: Number(document.getElementById('manual-fat').value) || 0,
+        carbsG: Number(document.getElementById('manual-carbs').value) || 0,
+        otherNutrientsJson: '{}'
+      };
+    }
+
+    function clearManualInputs() {
+      document.getElementById('manual-food-name').value = '';
+      document.getElementById('manual-calories').value = '';
+      document.getElementById('manual-protein').value = '';
+      document.getElementById('manual-fat').value = '';
+      document.getElementById('manual-carbs').value = '';
+    }
+
+    // 1件だけ、リストを経由せずにすぐ保存する(リストの中身には影響しない)
+    function recordSingle(item, onSuccess) {
+      recordSubmitting = true;
+      syncRecordButtons();
+      document.getElementById('record-status').textContent = '';
+      google.script.run.withSuccessHandler(function () {
+        recordSubmitting = false;
+        syncRecordButtons();
+        document.getElementById('record-status').textContent = item.foodName + 'を記録しました';
+        if (onSuccess) onSuccess();
+      }).withFailureHandler(function () {
+        recordSubmitting = false;
+        syncRecordButtons();
+        document.getElementById('record-status').textContent = '記録に失敗しました。再度お試しください。';
+      }).recordMeal([item]);
+    }
+
+    document.getElementById('record-add-from-master').addEventListener('click', function () {
+      var item = buildMasterItem();
+      if (!item) return;
+      recordItems.push(item);
+      renderRecordList();
+    });
+
+    document.getElementById('record-add-manual').addEventListener('click', function () {
+      var item = buildManualItem();
+      if (!item) return;
+      recordItems.push(item);
+      renderRecordList();
+      clearManualInputs();
+    });
+
+    document.getElementById('record-single-from-master').addEventListener('click', function () {
+      var item = buildMasterItem();
+      if (!item) return;
+      recordSingle(item);
+    });
+
+    document.getElementById('record-single-manual').addEventListener('click', function () {
+      var item = buildManualItem();
+      if (!item) return;
+      recordSingle(item, clearManualInputs);
+    });
+
+    document.getElementById('record-submit').addEventListener('click', function () {
+      if (recordItems.length === 0) return;
+      recordSubmitting = true;
+      renderRecordList();
+      google.script.run.withSuccessHandler(function (result) {
+        recordSubmitting = false;
+        document.getElementById('record-status').textContent = result.itemCount + '件記録しました';
+        recordItems = [];
+        renderRecordList();
+      }).withFailureHandler(function (err) {
+        recordSubmitting = false;
+        renderRecordList();
+        document.getElementById('record-status').textContent = '記録に失敗しました。再度お試しください。';
+      }).recordMeal(recordItems);
+    });
+
+    function loadCalendarNutrientOptions() {
+      google.script.run.withSuccessHandler(function (settings) {
+        var select = document.getElementById('calendar-nutrient-select');
+        var tracked = settings.filter(function (s) { return s.tracked; });
+        select.innerHTML = tracked.map(function (s) {
+          return '<option value="' + escapeHtml(s.nutrientName) + '">' + escapeHtml(NUTRIENT_LABEL[s.nutrientName] || s.nutrientName) + '</option>';
+        }).join('');
+        if (tracked.length > 0) loadCalendarGrid(tracked[0].nutrientName);
+      }).withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
+    }
+
+    function currentYearMonth() {
+      var now = new Date();
+      var month = now.getMonth() + 1;
+      return now.getFullYear() + '-' + (month < 10 ? '0' + month : month);
+    }
+
+    function todayDateString() {
+      var now = new Date();
+      var m = now.getMonth() + 1;
+      var d = now.getDate();
+      return now.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+    }
+
+    function loadCalendarGrid(nutrientName) {
+      var yearMonth = currentYearMonth();
+      document.getElementById('calendar-month').textContent =
+        yearMonth.split('-')[0] + '年' + Number(yearMonth.split('-')[1]) + '月';
+      google.script.run.withSuccessHandler(function (achievementByDate) {
+        var grid = document.getElementById('calendar-grid');
+        var dates = Object.keys(achievementByDate).sort();
+        var today = todayDateString();
+        var html = '';
+        var offsetCount = 0;
+        if (dates.length > 0) {
+          var first = dates[0].split('-');
+          var offset = new Date(Number(first[0]), Number(first[1]) - 1, Number(first[2])).getDay();
+          offsetCount = offset;
+          for (var i = 0; i < offset; i++) html += '<div class="day"></div>';
+        }
+        html += dates.map(function (dateStr) {
+          var achieved = achievementByDate[dateStr];
+          var cls = 'day' + (achieved ? ' achieved' : '') + (dateStr === today ? ' today' : '') + (dateStr > today ? ' future' : '');
+          var label = Number(dateStr.split('-')[2]);
+          return '<div class="' + cls + '" aria-label="' + label + '日' + (achieved ? ' 達成' : '') + '"><span>' + label + '</span></div>';
+        }).join('');
+        var tail = (7 - ((offsetCount + dates.length) % 7)) % 7;
+        for (var j = 0; j < tail; j++) html += '<div class="day"></div>';
+        grid.innerHTML = html;
+      }).withFailureHandler(failHandler('カレンダーの読み込みに失敗しました。再度お試しください。')).getMonthAchievement(yearMonth, nutrientName);
+    }
+
+    document.getElementById('calendar-nutrient-select').addEventListener('change', function (e) {
+      loadCalendarGrid(e.target.value);
+    });
+
+    function getProfileGoal() {
+      return document.querySelector('input[name="profile-goal"]:checked').value;
+    }
+
+    function setProfileGoal(value) {
+      var radio = document.querySelector('input[name="profile-goal"][value="' + value + '"]');
+      if (radio) radio.checked = true;
+    }
+
+    function loadSettingsPanel() {
+      google.script.run.withSuccessHandler(function (profile) {
+        if (profile) {
+          document.getElementById('profile-height').value = profile.heightCm;
+          document.getElementById('profile-weight').value = profile.weightKg;
+          document.getElementById('profile-age').value = profile.age;
+          document.getElementById('profile-sex').value = profile.sex;
+          document.getElementById('profile-activity').value = profile.activityLevel;
+          setProfileGoal(profile.goalType);
+        }
+      }).withFailureHandler(failHandler('プロフィールの読み込みに失敗しました。再度お試しください。')).getProfile();
+      loadNutrientSettingsList();
+      loadFoodMasterList();
+    }
+
+    document.getElementById('profile-save').addEventListener('click', function () {
+      var profile = {
+        heightCm: Number(document.getElementById('profile-height').value),
+        weightKg: Number(document.getElementById('profile-weight').value),
+        age: Number(document.getElementById('profile-age').value),
+        sex: document.getElementById('profile-sex').value,
+        activityLevel: document.getElementById('profile-activity').value,
+        goalType: getProfileGoal()
+      };
+      var btn = document.getElementById('profile-save');
+      btn.disabled = true;
+      google.script.run.withSuccessHandler(function () {
+        btn.disabled = false;
+        document.getElementById('profile-status').textContent = '保存し、目標値を更新しました';
+        loadNutrientSettingsList();
+      }).withFailureHandler(function () {
+        btn.disabled = false;
+        document.getElementById('profile-status').textContent = '保存に失敗しました。再度お試しください。';
+      }).saveProfile(profile);
+    });
+
+    // ---- 計算ロジックの表示・編集 ----
+    function logicInput(key) {
+      return '<input type="number" inputmode="decimal" step="any" data-logic="' + key + '" aria-label="' + key + '">';
+    }
+
+    var LOGIC_BLOCKS = [
+      { title: '基礎代謝(安静にしていても使うカロリー)', html:
+        '<div class="logic-formula">体重(kg) × ' + logicInput('bmrWeight') + ' + 身長(cm) × ' + logicInput('bmrHeight') +
+        ' − 年齢 × ' + logicInput('bmrAge') + '</div>' +
+        '<div class="logic-formula" style="margin-top:8px">さらに 男性は ' + logicInput('bmrMale') + ' を足す / 女性は ' + logicInput('bmrFemale') + ' を足す</div>' },
+      { title: '活動量の係数(基礎代謝にかける数)', html: '<div class="logic-grid">' +
+        '<span>座り仕事中心</span>' + logicInput('actSedentary') +
+        '<span>軽い運動</span>' + logicInput('actLight') +
+        '<span>中程度の運動</span>' + logicInput('actModerate') +
+        '<span>活発</span>' + logicInput('actActive') +
+        '<span>非常に活発</span>' + logicInput('actVeryActive') + '</div>' },
+      { title: '目標カロリー', html:
+        '<div class="logic-formula fixed">基礎代謝 × 活動量の係数 × 目標の係数</div>' +
+        '<div class="logic-grid" style="margin-top:8px"><span>増量の係数</span>' + logicInput('goalBulk') +
+        '<span>減量の係数</span>' + logicInput('goalCut') + '</div>' },
+      { title: 'タンパク質(g)', html: '<div class="logic-formula">体重(kg) × ' + logicInput('proteinPerKg') + '</div>' },
+      { title: '脂質(g)', html: '<div class="logic-formula">目標カロリー × ' + logicInput('fatRatio') + ' ÷ 9</div>' },
+      { title: '炭水化物(g)', html: '<div class="logic-formula fixed">(目標カロリー − タンパク質 × 4 − 脂質 × 9) ÷ 4</div>' +
+        '<div class="logic-note" style="margin:8px 0 0">残りのカロリーを炭水化物にあてるため、数値の編集はありません。</div>' }
+    ];
+
+    var logicSaved = null;
+
+    function readLogicInputs() {
+      var values = {};
+      var valid = true;
+      document.querySelectorAll('#logic-form [data-logic]').forEach(function (el) {
+        var v = el.value.trim();
+        values[el.dataset.logic] = v === '' ? NaN : Number(v);
+        if (v === '' || !isFinite(Number(v))) valid = false;
+      });
+      return { values: values, valid: valid };
+    }
+
+    // 入力が正しく、かつ保存済みの値から変わっているときだけ保存できる
+    function syncLogicSave() {
+      var cur = readLogicInputs();
+      var changed = !logicSaved || Object.keys(cur.values).some(function (k) { return cur.values[k] !== logicSaved[k]; });
+      document.getElementById('logic-save').disabled = !(cur.valid && changed);
+    }
+
+    function fillLogicInputs(logic) {
+      document.querySelectorAll('#logic-form [data-logic]').forEach(function (el) {
+        el.value = logic[el.dataset.logic];
+      });
+      syncLogicSave();
+    }
+
+    function renderLogicForm() {
+      document.getElementById('logic-form').innerHTML = LOGIC_BLOCKS.map(function (b) {
+        return '<div class="logic-block"><h3>' + b.title + '</h3>' + b.html + '</div>';
+      }).join('');
+      document.querySelectorAll('#logic-form [data-logic]').forEach(function (el) {
+        el.addEventListener('input', syncLogicSave);
+      });
+    }
+    renderLogicForm();
+
+    function closeLogicModal() {
+      document.getElementById('logic-modal').classList.remove('open');
+    }
+
+    document.getElementById('logic-open').addEventListener('click', function () {
+      var status = document.getElementById('logic-status');
+      status.textContent = '読み込み中…';
+      logicSaved = null;
+      document.getElementById('logic-save').disabled = true;
+      document.getElementById('logic-modal').classList.add('open');
+      google.script.run.withSuccessHandler(function (logic) {
+        logicSaved = logic;
+        fillLogicInputs(logic);
+        status.textContent = '';
+      }).withFailureHandler(function () {
+        status.textContent = '読み込みに失敗しました。閉じてもう一度お試しください。';
+      }).getCalcLogic();
+    });
+
+    document.getElementById('logic-close').addEventListener('click', closeLogicModal);
+    document.getElementById('logic-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeLogicModal();
+    });
+
+    document.getElementById('logic-save').addEventListener('click', function () {
+      var cur = readLogicInputs();
+      if (!cur.valid) return;
+      var status = document.getElementById('logic-status');
+      document.getElementById('logic-save').disabled = true;
+      status.textContent = '';
+      google.script.run.withSuccessHandler(function (logic) {
+        logicSaved = logic;
+        fillLogicInputs(logic);
+        status.textContent = '保存しました。次回の再計算から使われます';
+      }).withFailureHandler(function () {
+        syncLogicSave();
+        status.textContent = '保存に失敗しました。数値を確認して、もう一度お試しください。';
+      }).saveCalcLogic(cur.values);
+    });
+
+    function loadNutrientSettingsList() {
+      google.script.run.withSuccessHandler(function (settings) {
+        var ul = document.getElementById('nutrient-settings-list');
+        ul.innerHTML = settings.map(function (s, i) {
+          return '<li class="nutrient-row">' +
+            '<label class="check"><input type="checkbox" data-index="' + i + '" class="nutrient-tracked" ' + (s.tracked ? 'checked' : '') + '> ' +
+            escapeHtml(NUTRIENT_LABEL[s.nutrientName] || s.nutrientName) + '</label>' +
+            '<div class="target-box">' +
+              '<span class="muted">目標</span>' +
+              '<input type="number" data-index="' + i + '" class="nutrient-target" aria-label="目標値" value="' + escapeHtml(s.targetValue) + '">' +
+              '<select data-index="' + i + '" class="nutrient-criterion" aria-label="達成基準">' +
+                '<option value="min" ' + (s.criterion === 'min' ? 'selected' : '') + '>以上で達成</option>' +
+                '<option value="max" ' + (s.criterion === 'max' ? 'selected' : '') + '>以下で達成</option>' +
+              '</select>' +
+            '</div>' +
+          '</li>';
+        }).join('') + '<li><button class="btn btn-primary btn-block" id="nutrient-settings-save">栄養素設定を保存</button></li>';
+
+        document.getElementById('nutrient-settings-save').addEventListener('click', function () {
+          var updated = settings.map(function (s, i) {
+            return {
+              nutrientName: s.nutrientName,
+              tracked: document.querySelector('.nutrient-tracked[data-index="' + i + '"]').checked,
+              targetValue: Number(document.querySelector('.nutrient-target[data-index="' + i + '"]').value),
+              criterion: document.querySelector('.nutrient-criterion[data-index="' + i + '"]').value
+            };
+          });
+          google.script.run.withSuccessHandler(function () {
+            document.getElementById('error-toast').style.display = 'none';
+            document.getElementById('nutrient-status').textContent = '保存しました';
+          }).withFailureHandler(failHandler('栄養素設定の保存に失敗しました。再度お試しください。')).saveNutrientSettings(updated);
+        });
+      }).withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
+    }
+
+    function loadFoodMasterList() {
+      google.script.run.withSuccessHandler(function (foods) {
+        var ul = document.getElementById('master-list');
+        if (foods.length === 0) {
+          ul.innerHTML = '<li class="muted">登録済みの食品はまだありません。</li>';
+          return;
+        }
+        ul.innerHTML = foods.map(function (f) {
+          return '<li class="master-row"><span class="item-name">' + escapeHtml(f.foodName) +
+            ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + formatNumber(f.calories) + ' kcal</span></span>' +
+            '<button data-name="' + escapeHtml(f.foodName) + '" class="btn-text master-delete">削除</button></li>';
+        }).join('');
+        document.querySelectorAll('.master-delete').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            google.script.run.withSuccessHandler(function () { loadFoodMasterList(); }).withFailureHandler(failHandler('食品の削除に失敗しました。再度お試しください。')).deleteFoodMasterItem(btn.dataset.name);
+          });
+        });
+      }).withFailureHandler(failHandler('食品マスタの読み込みに失敗しました。再度お試しください。')).getFoodMaster();
+    }
+
+    document.getElementById('master-save').addEventListener('click', function () {
+      var item = {
+        foodName: document.getElementById('master-food-name').value,
+        unitName: document.getElementById('master-unit-name').value,
+        calories: Number(document.getElementById('master-calories').value) || 0,
+        proteinG: Number(document.getElementById('master-protein').value) || 0,
+        fatG: Number(document.getElementById('master-fat').value) || 0,
+        carbsG: Number(document.getElementById('master-carbs').value) || 0,
+        otherNutrientsJson: '{}'
+      };
+      if (!item.foodName) return;
+      var btn = document.getElementById('master-save');
+      btn.disabled = true;
+      google.script.run.withSuccessHandler(function () {
+        btn.disabled = false;
+        loadFoodMasterList();
+        document.getElementById('master-food-name').value = '';
+        document.getElementById('master-unit-name').value = '';
+        document.getElementById('master-calories').value = '';
+        document.getElementById('master-protein').value = '';
+        document.getElementById('master-fat').value = '';
+        document.getElementById('master-carbs').value = '';
+      }).withFailureHandler(function () {
+        btn.disabled = false;
+        failHandler('食品の保存に失敗しました。再度お試しください。')();
+      }).saveFoodMasterItem(item);
+    });
+
+    loadDashboard();
   </script>
 </body>
 </html>
