@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Nutrition Tracker</title>
   <meta name="theme-color" content="#edf1f4">
   <meta name="mobile-web-app-capable" content="yes">
@@ -36,6 +36,7 @@
       --radius: 14px;
     }
     * { box-sizing: border-box; }
+    html { touch-action: manipulation; }
     body {
       margin: 0; padding-bottom: 96px;
       background: var(--ground); color: var(--ink);
@@ -412,6 +413,17 @@
         remainingDashArray: remainingArc + ' ' + PIE_CIRCUMFERENCE
       };
     }
+
+    // 拡大・縮小はしない(viewportの指定に加え、iOSのピンチ操作も止める)
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+    // 入力欄・プルダウン以外をタップしたら、キーボードやプルダウンを閉じる
+    document.addEventListener('click', function (e) {
+      var active = document.activeElement;
+      if (!active || !/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) return;
+      if (e.target.closest && e.target.closest('input, select, textarea, label')) return;
+      active.blur();
+    });
 
     function escapeHtml(value) {
       return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
