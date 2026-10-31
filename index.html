@@ -67,6 +67,11 @@
     .muted { color: var(--muted); }
     .num { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
     .status { min-height: 1.4em; margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+    .status { transition: opacity 0.5s ease; }
+    .status.fading { opacity: 0; }
+    /* ボタンを押した瞬間に、色が少し濃くなってから戻る */
+    @keyframes tap-flash { 0% { filter: brightness(0.78); } 100% { filter: none; } }
+    .tap-flash { animation: tap-flash 0.4s ease-out; }
 
     /* ---- Buttons & fields ---- */
     .btn {
@@ -419,6 +424,48 @@
 
     // 拡大・縮小はしない(viewportの指定に加え、iOSのピンチ操作も止める)
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+    // ボタンを押したとき、押したことが分かるように一瞬だけ色を濃くする(タブのボタンと、押せない状態のボタンは除く)
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button') : null;
+      if (!btn || btn.disabled || btn.closest('nav.tabbar')) return;
+      btn.classList.remove('tap-flash');
+      void btn.offsetWidth; // 連続で押しても、毎回やり直す
+      btn.classList.add('tap-flash');
+      setTimeout(function () { btn.classList.remove('tap-flash'); }, 450);
+    }, true); // 各ボタン自身の処理(押したあと無効にするなど)より先に動かすため、捕捉の段階で受ける
+
+    // 「保存しました」などの完了メッセージは、表示して4秒後にフェードアウトして消す(失敗のメッセージは残す)
+    (function () {
+      var timers = new WeakMap();
+      function isDoneMessage(text) { return /しました/.test(text) && !/失敗/.test(text); }
+      function clearTimers(el) {
+        var t = timers.get(el);
+        if (t) { clearTimeout(t.fade); clearTimeout(t.clear); timers.delete(el); }
+      }
+      function watch(el) {
+        clearTimers(el);
+        el.classList.remove('fading');
+        var text = el.textContent;
+        if (!text || !isDoneMessage(text)) return;
+        var t = {};
+        t.fade = setTimeout(function () { el.classList.add('fading'); }, 4000);
+        t.clear = setTimeout(function () {
+          if (el.textContent === text) el.textContent = '';
+          el.classList.remove('fading');
+          timers.delete(el);
+        }, 4500);
+        timers.set(el, t);
+      }
+      new MutationObserver(function (records) {
+        var seen = [];
+        records.forEach(function (r) {
+          var node = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+          var el = node && node.closest ? node.closest('.status') : null;
+          if (el && seen.indexOf(el) === -1) { seen.push(el); watch(el); }
+        });
+      }).observe(document.body, { childList: true, characterData: true, subtree: true });
+    })();
     document.addEventListener('contextmenu', function (e) {
       if (!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) e.preventDefault();
     });
