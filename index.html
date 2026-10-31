@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nutrition Tracker</title>
+  <meta name="theme-color" content="#edf1f4">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Nutrition Tracker">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    html, body { margin: 0; height: 100%; background: #edf1f4; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <!-- 本体はGoogle Apps Scriptのウェブアプリ。このページはホーム画面用のアイコンと全画面表示を提供する入れ物 -->
+  <iframe id="app" title="Nutrition Tracker"
+          src="https://script.google.com/macros/s/AKfycbxMMQTRW8U_Vd5_gLs6oBp86hwoSA6W8EpG_iwgEk4P5ChBUwhGlXrlE6nDcEa4rHeh/exec"></iframe>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
+  </script>
+</body>
+</html>
