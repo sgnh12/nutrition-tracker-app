@@ -37,6 +37,9 @@
     }
     * { box-sizing: border-box; }
     html { touch-action: manipulation; }
+    /* 長押しでの文字選択・コピーメニューを出さない(入力欄は除く) */
+    html { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
     body {
       margin: 0; padding-bottom: 120px;
       background: var(--ground); color: var(--ink);
@@ -416,6 +419,9 @@
 
     // 拡大・縮小はしない(viewportの指定に加え、iOSのピンチ操作も止める)
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    document.addEventListener('contextmenu', function (e) {
+      if (!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) e.preventDefault();
+    });
 
     // 入力欄・プルダウン以外をタップしたら、キーボードやプルダウンを閉じる
     document.addEventListener('click', function (e) {
