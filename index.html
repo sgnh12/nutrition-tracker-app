@@ -191,7 +191,7 @@
     .past-datetime .dt-sep { padding-bottom: 12px; font-weight: 700; color: var(--muted); }
     .past-record .manual-hint { margin: 8px 0 0; min-height: 1.2em; }
     .past-record #past-form { margin-top: 12px; }
-    details.registered[open] .past-body { animation: row-in 0.22s ease-out both; }
+    details.registered[open] .past-body, details.registered[open] .fold-body { animation: row-in 0.22s ease-out both; }
     .add-card-row { display: flex; justify-content: center; margin: 4px 0 0; }
     .add-card-row:has(.btn-add[hidden]) { display: none; }
     .btn-add { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-size: 1.4rem; line-height: 1; font-weight: 700; cursor: pointer; }
@@ -283,7 +283,7 @@
     @media (prefers-reduced-motion: reduce) {
       .ring .arc { animation: none; }
       details.registered[open] li { animation: none; }
-      details.registered[open] .past-body { animation: none; }
+      details.registered[open] .past-body, details.registered[open] .fold-body { animation: none; }
     }
   </style>
 </head>
@@ -401,47 +401,55 @@
       </div>
 
       <div class="card">
-        <h2 class="section-title">プロフィール</h2>
-        <div class="field-grid">
-          <label class="field"><span>身長 (cm)</span><input id="profile-height" type="number" inputmode="decimal"></label>
-          <label class="field"><span>体重 (kg)</span><input id="profile-weight" type="number" inputmode="decimal"></label>
-          <label class="field"><span>年齢</span><input id="profile-age" type="number" inputmode="numeric"></label>
-          <label class="field"><span>性別</span>
-            <select id="profile-sex">
-              <option value="male">男性</option>
-              <option value="female">女性</option>
-            </select>
-          </label>
-          <label class="field span-2"><span>活動量</span>
-            <select id="profile-activity">
-              <option value="sedentary">座り仕事中心</option>
-              <option value="light">軽い運動</option>
-              <option value="moderate">中程度の運動</option>
-              <option value="active">活発</option>
-              <option value="very_active">非常に活発</option>
-            </select>
-          </label>
-          <div class="goal-row span-2" role="radiogroup" aria-labelledby="goal-label">
-            <span class="goal-label" id="goal-label">目標</span>
-            <div class="segmented">
-              <label><input type="radio" name="profile-goal" value="bulk" checked><span>増量</span></label>
-              <label><input type="radio" name="profile-goal" value="cut"><span>減量</span></label>
+        <details class="manual registered">
+          <summary>プロフィール</summary>
+          <div class="fold-body">
+            <div class="field-grid">
+              <label class="field"><span>身長 (cm)</span><input id="profile-height" type="number" inputmode="decimal"></label>
+              <label class="field"><span>体重 (kg)</span><input id="profile-weight" type="number" inputmode="decimal"></label>
+              <label class="field"><span>年齢</span><input id="profile-age" type="number" inputmode="numeric"></label>
+              <label class="field"><span>性別</span>
+                <select id="profile-sex">
+                  <option value="male">男性</option>
+                  <option value="female">女性</option>
+                </select>
+              </label>
+              <label class="field span-2"><span>活動量</span>
+                <select id="profile-activity">
+                  <option value="sedentary">座り仕事中心</option>
+                  <option value="light">軽い運動</option>
+                  <option value="moderate">中程度の運動</option>
+                  <option value="active">活発</option>
+                  <option value="very_active">非常に活発</option>
+                </select>
+              </label>
+              <div class="goal-row span-2" role="radiogroup" aria-labelledby="goal-label">
+                <span class="goal-label" id="goal-label">目標</span>
+                <div class="segmented">
+                  <label><input type="radio" name="profile-goal" value="bulk" checked><span>増量</span></label>
+                  <label><input type="radio" name="profile-goal" value="cut"><span>減量</span></label>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" id="profile-save">保存して目標値を再計算</button>
+            <div class="status-row">
+              <div id="profile-status" class="status" role="status"></div>
+              <button type="button" class="icon-btn" id="logic-open" aria-label="目標値の計算ロジックを表示・編集" title="計算ロジック">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/></svg>
+              </button>
             </div>
           </div>
-        </div>
-        <button class="btn btn-primary btn-block" id="profile-save">保存して目標値を再計算</button>
-        <div class="status-row">
-          <div id="profile-status" class="status" role="status"></div>
-          <button type="button" class="icon-btn" id="logic-open" aria-label="目標値の計算ロジックを表示・編集" title="計算ロジック">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/></svg>
-          </button>
-        </div>
+        </details>
       </div>
 
-      <h2 class="section-title">追跡する栄養素</h2>
       <div class="card">
-        <ul id="nutrient-settings-list"></ul>
-        <div id="nutrient-status" class="status" role="status"></div>
+        <details class="manual registered">
+          <summary>追跡する栄養素</summary>
+          <div class="fold-body">
+            <ul id="nutrient-settings-list"></ul>
+            <div id="nutrient-status" class="status" role="status"></div>
+          </div>
+        </details>
       </div>
 
     </section>
