@@ -265,16 +265,17 @@
     .val-pies { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .val-pies .pie-card { padding: 10px 2px 8px; }
     .val-pies .ring { width: 100%; max-width: 76px; height: auto; aspect-ratio: 1; }
-        .val-pies .ring-center .unit { position: static; align-self: flex-end; margin: 0; font-size: 0.55rem; line-height: 1; }
-    .val-pies .ring-center .valrow { display: flex; flex-direction: column; align-items: flex-end; }
+        .val-pies .ring-center .unit { position: absolute; left: 100%; bottom: 0.1em; top: auto; transform: none; margin: 0 0 0 1px; font-size: 0.55rem; line-height: 1; }
+    .val-pies .ring-center .valrow { position: relative; display: block; }
     .val-pies .ring-center .big { font-size: 0.95rem; }
     .val-pies .pie-card .label { font-size: 0.72rem; margin-top: 4px; }
     .val-pies .pie-card .sub { display: none; }
+    .val-pies .ring .arc { animation: none; transition: stroke-dasharray 0.5s cubic-bezier(.2,.7,.2,1), opacity 0.2s; }
     .val-pies .pie-card[data-nutrient="calories"] { display: block; grid-column: auto; text-align: center; padding: 10px 2px 8px; }
     .val-pies .pie-card[data-nutrient="calories"] .ring { width: 100%; height: auto; margin: 0 auto; }
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .big { font-size: 0.95rem; }
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .lead { top: 14%; font-size: 0.65rem; }
-    .val-pies .pie-card[data-nutrient="calories"] .ring-center .unit { position: static; left: auto; top: auto; transform: none; margin: 0; font-size: 0.55rem; }
+    .val-pies .pie-card[data-nutrient="calories"] .ring-center .unit { left: 50%; top: 100%; bottom: auto; transform: translateX(-50%); margin: 1px 0 0; font-size: 0.55rem; }
     .val-pies > .loader { grid-column: 1 / -1; }
     .val-body { max-width: 640px; margin: 0 auto; padding: 8px 16px calc(env(safe-area-inset-bottom) + 24px); }
 
@@ -997,12 +998,43 @@
       }
       hint.textContent = '';
       var added = validationForm.getItems();
-      pies.innerHTML = validationBase.settings.filter(function (s) { return s.tracked; }).map(function (s) {
+      var entries = validationBase.settings.filter(function (s) { return s.tracked; }).map(function (s) {
         var key = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
         var consumed = validationBase.todayIntake.reduce(function (sum, row) { return sum + Number(row[key] || 0); }, 0) +
           added.reduce(function (sum, item) { return sum + Number(item[key] || 0); }, 0);
-        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), false, true);
-      }).join('');
+        return { name: s.nutrientName, consumed: consumed, target: Number(s.targetValue) };
+      });
+      var sig = entries.map(function (e) { return e.name + ':' + e.target; }).join(',');
+      var rebuild = pies.dataset.sig !== sig;
+      var holder = document.createElement('div');
+      holder.innerHTML = entries.map(function (e) { return renderPieCard(e.name, e.consumed, e.target, false, true); }).join('');
+      if (rebuild) {
+        pies.innerHTML = holder.innerHTML;
+        pies.dataset.sig = sig;
+      }
+      // 作り直さず、数字と円弧だけを差し替える(円弧は、増減した分だけなめらかに動く)
+      Array.prototype.forEach.call(pies.querySelectorAll('.pie-card'), function (card, idx) {
+        var fresh = holder.children[idx];
+        var slices = computePieSlices(entries[idx]);
+        card.className = fresh.className;
+        card.querySelector('.ring-center').innerHTML = fresh.querySelector('.ring-center').innerHTML;
+        var arc = card.querySelector('.arc');
+        if (!arc) {
+          arc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          arc.setAttribute('class', 'arc');
+          ['cx', 'cy'].forEach(function (a) { arc.setAttribute(a, '50'); });
+          arc.setAttribute('r', String(PIE_RADIUS));
+          arc.setAttribute('fill', 'none');
+          arc.setAttribute('stroke-width', '11');
+          arc.setAttribute('transform', 'rotate(-90 50 50)');
+          arc.style.strokeDasharray = '0 ' + PIE_CIRCUMFERENCE;
+          arc.style.opacity = '0';
+          card.querySelector('.ring svg').appendChild(arc);
+          arc.getBoundingClientRect(); // 初期位置を確定してから動かす
+        }
+        arc.style.strokeDasharray = slices.consumedDashArray;
+        arc.style.opacity = slices.consumedRatio > 0 ? '1' : '0';
+      });
     }
 
     var validationForm = createRecordForm({ cardsId: 'validation-cards', addId: 'validation-add-card', onChange: renderValidation });
