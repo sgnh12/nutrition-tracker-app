@@ -179,6 +179,13 @@
     .food-card [hidden] { display: none !important; }
     .card-remove { position: absolute; top: -12px; right: -8px; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
     .card-remove:hover { color: var(--danger); border-color: var(--danger); }
+    .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
+    .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
+    .past-datetime .field { width: 64px; }
+    .past-datetime .dt-sep { padding-bottom: 12px; font-weight: 700; color: var(--muted); }
+    .past-record .manual-hint { margin: 8px 0 0; min-height: 1.2em; }
+    .past-record #past-form { margin-top: 12px; }
+    details.registered[open] .past-body { animation: row-in 0.22s ease-out both; }
     .add-card-row { display: flex; justify-content: center; margin: 4px 0 0; }
     .add-card-row:has(.btn-add[hidden]) { display: none; }
     .btn-add { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-size: 1.4rem; line-height: 1; font-weight: 700; cursor: pointer; }
@@ -265,6 +272,7 @@
     @media (prefers-reduced-motion: reduce) {
       .ring .arc { animation: none; }
       details.registered[open] li { animation: none; }
+      details.registered[open] .past-body { animation: none; }
     }
   </style>
 </head>
@@ -306,6 +314,32 @@
         <div class="add-card-row"><button type="button" class="btn-add" id="record-add-card" aria-label="食品を追加" hidden>+</button></div>
         <button class="btn btn-primary btn-block" id="record-submit">記録</button>
         <div id="record-status" class="status" role="status"></div>
+      </div>
+      <div class="card">
+        <details class="manual registered past-record">
+          <summary>過去の記録追加</summary>
+          <div class="past-body">
+            <div class="past-datetime">
+              <div class="dt-group">
+                <label class="field"><span>月</span><input id="past-month" type="number" inputmode="numeric" aria-label="月"></label>
+                <span class="dt-sep" aria-hidden="true">/</span>
+                <label class="field"><span>日</span><input id="past-day" type="number" inputmode="numeric" aria-label="日"></label>
+              </div>
+              <div class="dt-group">
+                <label class="field"><span>時</span><input id="past-hour" type="number" inputmode="numeric" aria-label="時"></label>
+                <span class="dt-sep" aria-hidden="true">：</span>
+                <label class="field"><span>分</span><input id="past-minute" type="number" inputmode="numeric" aria-label="分"></label>
+              </div>
+            </div>
+            <div id="past-resolved" class="manual-hint"></div>
+            <div id="past-form" hidden>
+              <div id="past-cards"></div>
+              <div class="add-card-row"><button type="button" class="btn-add" id="past-add-card" aria-label="食品を追加" hidden>+</button></div>
+              <button class="btn btn-primary btn-block" id="past-submit">記録</button>
+            </div>
+            <div id="past-status" class="status" role="status"></div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -681,127 +715,190 @@
       });
     }
 
-    var recordSubmitting = false;
+    // 食品ごとのカードの入力フォーム。「食品を記録」と「過去の記録追加」で同じ作りを使う
+    // cfg: cardsId, addId, submitId, statusId, getRecordedAt(省略可。日時のISO文字列を返す。不正ならnull), onSuccess(省略可)
+    function createRecordForm(cfg) {
+      var cardsEl = document.getElementById(cfg.cardsId);
+      var addBtn = document.getElementById(cfg.addId);
+      var submitBtn = document.getElementById(cfg.submitId);
+      var statusEl = document.getElementById(cfg.statusId);
+      var submitting = false;
 
-    // 食品ごとのカード。マスタの食品か「手入力追加」を選ぶと入力欄が決まる
-    function createFoodCard() {
-      var card = document.createElement('div');
-      card.className = 'food-card';
-      card.innerHTML =
-        '<button type="button" class="card-remove" aria-label="この食品を削除"><svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
-        '<div class="master-box row">' +
-          '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
-          '<label class="field qty"><span>個数</span><input class="master-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
-        '</div>' +
-        '<div class="manual-box" hidden>' +
-          '<div class="name-qty">' +
-            '<label class="field grow"><span>食品名</span><input class="manual-name" placeholder="例: コンビニのおにぎり"></label>' +
-            '<span class="times" aria-hidden="true">×</span>' +
-            '<label class="field qty"><span>個数</span><input class="manual-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+      // マスタの食品か「手入力追加」を選ぶと入力欄が決まる
+      function createCard() {
+        var card = document.createElement('div');
+        card.className = 'food-card';
+        card.innerHTML =
+          '<button type="button" class="card-remove" aria-label="この食品を削除"><svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+          '<div class="master-box row">' +
+            '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
+            '<label class="field qty"><span>個数</span><input class="master-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
           '</div>' +
-          '<div class="manual-hint">栄養素は1個あたりの量を入力してください</div>' +
-          '<div class="field-grid">' +
-            '<label class="field"><span>カロリー (kcal)</span><input class="manual-calories" type="number" inputmode="decimal"></label>' +
-            '<label class="field"><span>タンパク質 (g)</span><input class="manual-protein" type="number" inputmode="decimal"></label>' +
-            '<label class="field"><span>脂質 (g)</span><input class="manual-fat" type="number" inputmode="decimal"></label>' +
-            '<label class="field"><span>炭水化物 (g)</span><input class="manual-carbs" type="number" inputmode="decimal"></label>' +
-          '</div>' +
-        '</div>';
-      card.querySelector('.food-select').addEventListener('change', function () {
-        var isManual = this.value === MANUAL_OPTION_VALUE;
-        card.querySelector('.master-box .qty').hidden = isManual;
-        card.querySelector('.manual-box').hidden = !isManual;
-        syncRecordCards();
-      });
-      card.querySelector('.card-remove').addEventListener('click', function () {
-        card.parentNode.removeChild(card);
-        syncRecordCards();
-      });
-      return card;
-    }
+          '<div class="manual-box" hidden>' +
+            '<div class="name-qty">' +
+              '<label class="field grow"><span>食品名</span><input class="manual-name" placeholder="例: コンビニのおにぎり"></label>' +
+              '<span class="times" aria-hidden="true">×</span>' +
+              '<label class="field qty"><span>個数</span><input class="manual-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+            '</div>' +
+            '<div class="manual-hint">栄養素は1個あたりの量を入力してください</div>' +
+            '<div class="field-grid">' +
+              '<label class="field"><span>カロリー (kcal)</span><input class="manual-calories" type="number" inputmode="decimal"></label>' +
+              '<label class="field"><span>タンパク質 (g)</span><input class="manual-protein" type="number" inputmode="decimal"></label>' +
+              '<label class="field"><span>脂質 (g)</span><input class="manual-fat" type="number" inputmode="decimal"></label>' +
+              '<label class="field"><span>炭水化物 (g)</span><input class="manual-carbs" type="number" inputmode="decimal"></label>' +
+            '</div>' +
+          '</div>';
+        card.querySelector('.food-select').addEventListener('change', function () {
+          var isManual = this.value === MANUAL_OPTION_VALUE;
+          card.querySelector('.master-box .qty').hidden = isManual;
+          card.querySelector('.manual-box').hidden = !isManual;
+          sync();
+        });
+        card.querySelector('.card-remove').addEventListener('click', function () {
+          card.parentNode.removeChild(card);
+          sync();
+        });
+        return card;
+      }
 
-    // 削除ボタンは2枚目以降だけ。＋は、最後のカードで食品が選ばれているときだけ出す
-    function syncRecordCards() {
-      var cards = document.querySelectorAll('#record-cards .food-card');
-      cards.forEach(function (card, i) {
-        card.querySelector('.card-remove').hidden = i === 0;
-      });
-      var last = cards[cards.length - 1];
-      document.getElementById('record-add-card').hidden = !(last && last.querySelector('.food-select').value);
-      document.getElementById('record-submit').disabled = recordSubmitting;
-    }
+      // 削除ボタンは2枚目以降だけ。＋は、最後のカードで食品が選ばれているときだけ出す
+      function sync() {
+        var cards = cardsEl.querySelectorAll('.food-card');
+        cards.forEach(function (card, i) {
+          card.querySelector('.card-remove').hidden = i === 0;
+        });
+        var last = cards[cards.length - 1];
+        addBtn.hidden = !(last && last.querySelector('.food-select').value);
+        submitBtn.disabled = submitting;
+      }
 
-    function resetRecordCards() {
-      var box = document.getElementById('record-cards');
-      box.innerHTML = '';
-      box.appendChild(createFoodCard());
-      syncRecordCards();
-    }
-    resetRecordCards();
+      function reset() {
+        cardsEl.innerHTML = '';
+        cardsEl.appendChild(createCard());
+        sync();
+      }
+      reset();
 
-    function numberOf(card, selector) {
-      return Number(card.querySelector(selector).value) || 0;
-    }
+      function numberOf(card, selector) {
+        return Number(card.querySelector(selector).value) || 0;
+      }
 
-    // 入力が足りないカードは記録の対象にしない
-    function buildCardItem(card) {
-      var selected = card.querySelector('.food-select').value;
-      if (!selected) return null;
-      if (selected === MANUAL_OPTION_VALUE) {
-        var foodName = card.querySelector('.manual-name').value.trim();
-        var manualQty = numberOf(card, '.manual-qty');
-        if (!foodName || !manualQty) return null;
+      // 入力が足りないカードは記録の対象にしない
+      function buildCardItem(card) {
+        var selected = card.querySelector('.food-select').value;
+        if (!selected) return null;
+        if (selected === MANUAL_OPTION_VALUE) {
+          var foodName = card.querySelector('.manual-name').value.trim();
+          var manualQty = numberOf(card, '.manual-qty');
+          if (!foodName || !manualQty) return null;
+          return {
+            foodName: foodName,
+            quantity: manualQty,
+            calories: Math.round(numberOf(card, '.manual-calories') * manualQty),
+            proteinG: Math.round(numberOf(card, '.manual-protein') * manualQty),
+            fatG: Math.round(numberOf(card, '.manual-fat') * manualQty),
+            carbsG: Math.round(numberOf(card, '.manual-carbs') * manualQty),
+            otherNutrientsJson: '{}'
+          };
+        }
+        var quantity = numberOf(card, '.master-qty');
+        var food = foodMasterCache.filter(function (f) { return f.foodName === selected; })[0];
+        if (!quantity || !food) return null;
         return {
-          foodName: foodName,
-          quantity: manualQty,
-          calories: Math.round(numberOf(card, '.manual-calories') * manualQty),
-          proteinG: Math.round(numberOf(card, '.manual-protein') * manualQty),
-          fatG: Math.round(numberOf(card, '.manual-fat') * manualQty),
-          carbsG: Math.round(numberOf(card, '.manual-carbs') * manualQty),
-          otherNutrientsJson: '{}'
+          foodName: food.foodName,
+          quantity: quantity,
+          calories: Math.round(food.calories * quantity),
+          proteinG: Math.round(food.proteinG * quantity),
+          fatG: Math.round(food.fatG * quantity),
+          carbsG: Math.round(food.carbsG * quantity),
+          otherNutrientsJson: food.otherNutrientsJson || '{}'
         };
       }
-      var quantity = numberOf(card, '.master-qty');
-      var food = foodMasterCache.filter(function (f) { return f.foodName === selected; })[0];
-      if (!quantity || !food) return null;
-      return {
-        foodName: food.foodName,
-        quantity: quantity,
-        calories: Math.round(food.calories * quantity),
-        proteinG: Math.round(food.proteinG * quantity),
-        fatG: Math.round(food.fatG * quantity),
-        carbsG: Math.round(food.carbsG * quantity),
-        otherNutrientsJson: food.otherNutrientsJson || '{}'
-      };
+
+      addBtn.addEventListener('click', function () {
+        cardsEl.appendChild(createCard());
+        sync();
+      });
+
+      submitBtn.addEventListener('click', function () {
+        if (submitting) return;
+        var recordedAt = cfg.getRecordedAt ? cfg.getRecordedAt() : undefined;
+        if (cfg.getRecordedAt && !recordedAt) return;
+        var items = Array.prototype.map.call(cardsEl.querySelectorAll('.food-card'), buildCardItem)
+          .filter(function (item) { return item; });
+        if (items.length === 0) {
+          statusEl.textContent = '記録する食品を選んでください';
+          return;
+        }
+        submitting = true;
+        sync();
+        statusEl.textContent = '';
+        invalidateViews();
+        var run = google.script.run.withSuccessHandler(function (result) {
+          submitting = false;
+          invalidateViews();
+          statusEl.textContent = result.itemCount + '件記録しました';
+          reset();
+          if (cfg.onSuccess) cfg.onSuccess();
+        }).withFailureHandler(function () {
+          submitting = false;
+          sync();
+          statusEl.textContent = '記録に失敗しました。再度お試しください。';
+        });
+        if (recordedAt) run.recordMeal(items, recordedAt); else run.recordMeal(items);
+      });
+
+      return { reset: reset, sync: sync };
     }
 
-    document.getElementById('record-add-card').addEventListener('click', function () {
-      document.getElementById('record-cards').appendChild(createFoodCard());
-      syncRecordCards();
-    });
+    createRecordForm({ cardsId: 'record-cards', addId: 'record-add-card', submitId: 'record-submit', statusId: 'record-status' });
 
-    document.getElementById('record-submit').addEventListener('click', function () {
-      if (recordSubmitting) return;
-      var items = Array.prototype.map.call(document.querySelectorAll('#record-cards .food-card'), buildCardItem)
-        .filter(function (item) { return item; });
-      if (items.length === 0) {
-        document.getElementById('record-status').textContent = '記録する食品を選んでください';
-        return;
+    // 過去の記録: 月日と時分から日時を決める。年は日本時間の今年で、今より先になる場合は去年にする
+    var JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+    function pastRecordedAt(month, day, hour, minute, nowMs) {
+      if ([month, day, hour, minute].some(function (v) { return !Number.isInteger(v); })) return null;
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+      var nowYear = new Date(nowMs + JST_OFFSET_MS).getUTCFullYear();
+      for (var year = nowYear; year >= nowYear - 1; year--) {
+        var check = new Date(Date.UTC(year, month - 1, day));
+        if (check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) continue;
+        var ms = Date.UTC(year, month - 1, day, hour, minute) - JST_OFFSET_MS;
+        if (ms <= nowMs) return { ms: ms, year: year };
       }
-      recordSubmitting = true;
-      syncRecordCards();
-      document.getElementById('record-status').textContent = '';
-      invalidateViews();
-      google.script.run.withSuccessHandler(function (result) {
-        recordSubmitting = false;
-        invalidateViews();
-        document.getElementById('record-status').textContent = result.itemCount + '件記録しました';
-        resetRecordCards();
-      }).withFailureHandler(function () {
-        recordSubmitting = false;
-        syncRecordCards();
-        document.getElementById('record-status').textContent = '記録に失敗しました。再度お試しください。';
-      }).recordMeal(items);
+      return null;
+    }
+
+    function readPastInputs() {
+      function intOf(id) {
+        var v = document.getElementById(id).value;
+        return v === '' ? NaN : Number(v);
+      }
+      return pastRecordedAt(intOf('past-month'), intOf('past-day'), intOf('past-hour'), intOf('past-minute'), Date.now());
+    }
+
+    function pastRecordedAtIso() {
+      var r = readPastInputs();
+      return r ? new Date(r.ms).toISOString() : null;
+    }
+
+    function updatePastForm() {
+      var r = readPastInputs();
+      document.getElementById('past-form').hidden = !r;
+      document.getElementById('past-resolved').textContent = r ? r.year + '年の日時として記録します' : '';
+      pastForm.sync();
+    }
+
+    var pastForm = createRecordForm({
+      cardsId: 'past-cards', addId: 'past-add-card', submitId: 'past-submit', statusId: 'past-status',
+      getRecordedAt: pastRecordedAtIso,
+      onSuccess: function () {
+        ['past-month', 'past-day', 'past-hour', 'past-minute'].forEach(function (id) { document.getElementById(id).value = ''; });
+        updatePastForm();
+      }
+    });
+    ['past-month', 'past-day', 'past-hour', 'past-minute'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', updatePastForm);
     });
 
     var CALENDAR_FAIL_MESSAGE = 'カレンダーの読み込みに失敗しました。再度お試しください。';
