@@ -863,25 +863,24 @@
       google.script.run.withSuccessHandler(renderCalendarGrid).withFailureHandler(failHandler(CALENDAR_FAIL_MESSAGE)).getMonthAchievement(yearMonth, nutrientName);
     }
 
+    // サーバーは今日までの達成状況しか返さないので、その月の全日をここで並べる(未来の日は未達成のまま薄く表示)
     function renderCalendarGrid(achievementByDate) {
         var grid = document.getElementById('calendar-grid');
-        var dates = Object.keys(achievementByDate).sort();
+        var parts = currentYearMonth().split('-');
+        var year = Number(parts[0]);
+        var month = Number(parts[1]);
+        var daysInMonth = new Date(year, month, 0).getDate();
+        var offset = new Date(year, month - 1, 1).getDay();
         var today = todayDateString();
         var html = '';
-        var offsetCount = 0;
-        if (dates.length > 0) {
-          var first = dates[0].split('-');
-          var offset = new Date(Number(first[0]), Number(first[1]) - 1, Number(first[2])).getDay();
-          offsetCount = offset;
-          for (var i = 0; i < offset; i++) html += '<div class="day"></div>';
-        }
-        html += dates.map(function (dateStr) {
-          var achieved = achievementByDate[dateStr];
+        for (var i = 0; i < offset; i++) html += '<div class="day"></div>';
+        for (var d = 1; d <= daysInMonth; d++) {
+          var dateStr = currentYearMonth() + '-' + (d < 10 ? '0' + d : d);
+          var achieved = !!achievementByDate[dateStr];
           var cls = 'day' + (achieved ? ' achieved' : '') + (dateStr === today ? ' today' : '') + (dateStr > today ? ' future' : '');
-          var label = Number(dateStr.split('-')[2]);
-          return '<div class="' + cls + '" aria-label="' + label + '日' + (achieved ? ' 達成' : '') + '"><span>' + label + '</span></div>';
-        }).join('');
-        var tail = (7 - ((offsetCount + dates.length) % 7)) % 7;
+          html += '<div class="' + cls + '" aria-label="' + d + '日' + (achieved ? ' 達成' : '') + '"><span>' + d + '</span></div>';
+        }
+        var tail = (7 - ((offset + daysInMonth) % 7)) % 7;
         for (var j = 0; j < tail; j++) html += '<div class="day"></div>';
         grid.innerHTML = html;
     }
