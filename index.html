@@ -169,6 +169,19 @@
     details.manual summary::after { content: ''; width: 8px; height: 8px; margin: 0 4px 3px 12px; flex: none; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.15s; }
     details.manual[open] summary::after { transform: rotate(-135deg); margin-bottom: -3px; }
     details.manual .field-grid { margin-top: 10px; }
+    .food-card { position: relative; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; background: #f7f9fa; }
+    .food-card .row, .food-card .name-qty { display: flex; gap: 8px; align-items: flex-end; }
+    .food-card .field.grow { flex: 1; min-width: 0; }
+    .food-card .field.qty { width: 84px; flex: none; }
+    .food-card .field.qty input, .food-card .field.grow select, .food-card .field.grow input { width: 100%; }
+    .food-card .times { flex: none; padding-bottom: 12px; font-weight: 700; color: var(--muted); }
+    .food-card .manual-hint { margin: 10px 0 8px; font-size: 0.78rem; color: var(--muted); }
+    .food-card [hidden] { display: none !important; }
+    .card-remove { position: absolute; top: -12px; right: -8px; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
+    .card-remove:hover { color: var(--danger); border-color: var(--danger); }
+    .add-card-row { display: flex; justify-content: center; margin: 4px 0 0; }
+    .add-card-row:has(.btn-add[hidden]) { display: none; }
+    .btn-add { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-size: 1.4rem; line-height: 1; font-weight: 700; cursor: pointer; }
     details.registered { margin-top: 0; border-top: none; padding-top: 0; }
     details.registered ul { margin-top: 6px; }
     /* 一覧は開いたとき、上の行から順に、早めにふわっと表示する */
@@ -288,34 +301,10 @@
 
     <section id="tab-record" class="tab-panel">
       <div class="card">
-        <h2 class="section-title">食品マスタから追加</h2>
-        <div class="row">
-          <select id="record-food-select" aria-label="食品"><option value="">-- 食品マスタから選択 --</option></select>
-          <input id="record-quantity" type="number" step="0.1" placeholder="個数" value="1" aria-label="個数">
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="record-single-from-master">記録</button>
-          <button class="btn" id="record-add-from-master">リストに追加</button>
-        </div>
-        <details class="manual">
-          <summary>マスタにない食品を手入力で追加</summary>
-          <div class="field-grid">
-            <label class="field span-2"><span>食品名</span><input id="manual-food-name" placeholder="例: コンビニのおにぎり"></label>
-            <label class="field"><span>カロリー (kcal)</span><input id="manual-calories" type="number" inputmode="decimal"></label>
-            <label class="field"><span>タンパク質 (g)</span><input id="manual-protein" type="number" inputmode="decimal"></label>
-            <label class="field"><span>脂質 (g)</span><input id="manual-fat" type="number" inputmode="decimal"></label>
-            <label class="field"><span>炭水化物 (g)</span><input id="manual-carbs" type="number" inputmode="decimal"></label>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-primary" id="record-single-manual">記録</button>
-            <button class="btn" id="record-add-manual">リストに追加</button>
-          </div>
-        </details>
-      </div>
-      <h2 class="section-title">今回の記録リスト</h2>
-      <div class="card">
-        <ul id="record-list" class="item-list"></ul>
-        <button class="btn btn-primary btn-block" id="record-submit">まとめて記録する</button>
+        <h2 class="section-title">食品を記録</h2>
+        <div id="record-cards"></div>
+        <div class="add-card-row"><button type="button" class="btn-add" id="record-add-card" aria-label="食品を追加" hidden>+</button></div>
+        <button class="btn btn-primary btn-block" id="record-submit">記録</button>
         <div id="record-status" class="status" role="status"></div>
       </div>
     </section>
@@ -669,59 +658,112 @@
       loadSettingsPanel(true);
     }
 
-    var recordItems = [];
     var foodMasterCache = [];
+    var MANUAL_OPTION_VALUE = '__manual__';
+
+    function foodOptionsHtml() {
+      return '<option value="">-- 食品マスタから選択 --</option>' +
+        '<option value="' + MANUAL_OPTION_VALUE + '">-- 手入力追加 --</option>' +
+        foodMasterCache.map(function (f) { return '<option value="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + ' (' + escapeHtml(f.unitName) + ')</option>'; }).join('');
+    }
 
     function loadFoodMasterIntoSelect(quiet) {
       loadView('foods', function (ok, fail) {
         google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getFoodMaster();
       }, function (foods) {
         foodMasterCache = foods;
-        var select = document.getElementById('record-food-select');
-        select.innerHTML = '<option value="">-- 食品マスタから選択 --</option>' +
-          foods.map(function (f) { return '<option value="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + ' (' + escapeHtml(f.unitName) + ')</option>'; }).join('');
+        document.querySelectorAll('.food-select').forEach(function (select) { select.innerHTML = foodOptionsHtml(); });
       }, '食品マスタの読み込みに失敗しました。再度お試しください。', {
         quiet: quiet,
-        canRender: function () { return !document.getElementById('record-food-select').value; }
+        canRender: function () {
+          return Array.prototype.every.call(document.querySelectorAll('.food-select'), function (select) { return !select.value; });
+        }
       });
     }
 
     var recordSubmitting = false;
 
-    // 送信中は二重送信を防ぐためすべての記録ボタンを止める。まとめて記録はリストが空のときも止める
-    function syncRecordButtons() {
-      document.getElementById('record-submit').disabled = recordSubmitting || recordItems.length === 0;
-      document.getElementById('record-single-from-master').disabled = recordSubmitting;
-      document.getElementById('record-single-manual').disabled = recordSubmitting;
-    }
-
-    function renderRecordList() {
-      var ul = document.getElementById('record-list');
-      syncRecordButtons();
-      if (recordItems.length === 0) {
-        ul.innerHTML = '<li class="muted">リストは空です。食品を追加してください。</li>';
-        return;
-      }
-      ul.innerHTML = recordItems.map(function (item, i) {
-        return '<li><span class="item-name">' + escapeHtml(item.foodName) +
-          ' <span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + formatNumber(item.calories) + ' kcal</span></span>' +
-          '<button data-index="' + i + '" class="btn-text record-remove">削除</button></li>';
-      }).join('');
-      document.querySelectorAll('.record-remove').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          recordItems.splice(Number(btn.dataset.index), 1);
-          renderRecordList();
-        });
+    // 食品ごとのカード。マスタの食品か「手入力追加」を選ぶと入力欄が決まる
+    function createFoodCard() {
+      var card = document.createElement('div');
+      card.className = 'food-card';
+      card.innerHTML =
+        '<button type="button" class="card-remove" aria-label="この食品を削除"><svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+        '<div class="master-box row">' +
+          '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
+          '<label class="field qty"><span>個数</span><input class="master-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+        '</div>' +
+        '<div class="manual-box" hidden>' +
+          '<div class="name-qty">' +
+            '<label class="field grow"><span>食品名</span><input class="manual-name" placeholder="例: コンビニのおにぎり"></label>' +
+            '<span class="times" aria-hidden="true">×</span>' +
+            '<label class="field qty"><span>個数</span><input class="manual-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+          '</div>' +
+          '<div class="manual-hint">栄養素は1個あたりの量を入力してください</div>' +
+          '<div class="field-grid">' +
+            '<label class="field"><span>カロリー (kcal)</span><input class="manual-calories" type="number" inputmode="decimal"></label>' +
+            '<label class="field"><span>タンパク質 (g)</span><input class="manual-protein" type="number" inputmode="decimal"></label>' +
+            '<label class="field"><span>脂質 (g)</span><input class="manual-fat" type="number" inputmode="decimal"></label>' +
+            '<label class="field"><span>炭水化物 (g)</span><input class="manual-carbs" type="number" inputmode="decimal"></label>' +
+          '</div>' +
+        '</div>';
+      card.querySelector('.food-select').addEventListener('change', function () {
+        var isManual = this.value === MANUAL_OPTION_VALUE;
+        card.querySelector('.master-box .qty').hidden = isManual;
+        card.querySelector('.manual-box').hidden = !isManual;
+        syncRecordCards();
       });
+      card.querySelector('.card-remove').addEventListener('click', function () {
+        card.parentNode.removeChild(card);
+        syncRecordCards();
+      });
+      return card;
     }
-    renderRecordList();
 
-    function buildMasterItem() {
-      var foodName = document.getElementById('record-food-select').value;
-      var quantity = Number(document.getElementById('record-quantity').value);
-      if (!foodName || !quantity) return null;
-      var food = foodMasterCache.filter(function (f) { return f.foodName === foodName; })[0];
-      if (!food) return null;
+    // 削除ボタンは2枚目以降だけ。＋は、最後のカードで食品が選ばれているときだけ出す
+    function syncRecordCards() {
+      var cards = document.querySelectorAll('#record-cards .food-card');
+      cards.forEach(function (card, i) {
+        card.querySelector('.card-remove').hidden = i === 0;
+      });
+      var last = cards[cards.length - 1];
+      document.getElementById('record-add-card').hidden = !(last && last.querySelector('.food-select').value);
+      document.getElementById('record-submit').disabled = recordSubmitting;
+    }
+
+    function resetRecordCards() {
+      var box = document.getElementById('record-cards');
+      box.innerHTML = '';
+      box.appendChild(createFoodCard());
+      syncRecordCards();
+    }
+    resetRecordCards();
+
+    function numberOf(card, selector) {
+      return Number(card.querySelector(selector).value) || 0;
+    }
+
+    // 入力が足りないカードは記録の対象にしない
+    function buildCardItem(card) {
+      var selected = card.querySelector('.food-select').value;
+      if (!selected) return null;
+      if (selected === MANUAL_OPTION_VALUE) {
+        var foodName = card.querySelector('.manual-name').value.trim();
+        var manualQty = numberOf(card, '.manual-qty');
+        if (!foodName || !manualQty) return null;
+        return {
+          foodName: foodName,
+          quantity: manualQty,
+          calories: Math.round(numberOf(card, '.manual-calories') * manualQty),
+          proteinG: Math.round(numberOf(card, '.manual-protein') * manualQty),
+          fatG: Math.round(numberOf(card, '.manual-fat') * manualQty),
+          carbsG: Math.round(numberOf(card, '.manual-carbs') * manualQty),
+          otherNutrientsJson: '{}'
+        };
+      }
+      var quantity = numberOf(card, '.master-qty');
+      var food = foodMasterCache.filter(function (f) { return f.foodName === selected; })[0];
+      if (!quantity || !food) return null;
       return {
         foodName: food.foodName,
         quantity: quantity,
@@ -733,90 +775,33 @@
       };
     }
 
-    function buildManualItem() {
-      var foodName = document.getElementById('manual-food-name').value;
-      if (!foodName) return null;
-      return {
-        foodName: foodName,
-        quantity: 1,
-        calories: Number(document.getElementById('manual-calories').value) || 0,
-        proteinG: Number(document.getElementById('manual-protein').value) || 0,
-        fatG: Number(document.getElementById('manual-fat').value) || 0,
-        carbsG: Number(document.getElementById('manual-carbs').value) || 0,
-        otherNutrientsJson: '{}'
-      };
-    }
-
-    function clearManualInputs() {
-      document.getElementById('manual-food-name').value = '';
-      document.getElementById('manual-calories').value = '';
-      document.getElementById('manual-protein').value = '';
-      document.getElementById('manual-fat').value = '';
-      document.getElementById('manual-carbs').value = '';
-    }
-
-    // 1件だけ、リストを経由せずにすぐ保存する(リストの中身には影響しない)
-    function recordSingle(item, onSuccess) {
-      recordSubmitting = true;
-      syncRecordButtons();
-      document.getElementById('record-status').textContent = '';
-      invalidateViews();
-      google.script.run.withSuccessHandler(function () {
-        recordSubmitting = false;
-        invalidateViews();
-        syncRecordButtons();
-        document.getElementById('record-status').textContent = item.foodName + 'を記録しました';
-        if (onSuccess) onSuccess();
-      }).withFailureHandler(function () {
-        recordSubmitting = false;
-        syncRecordButtons();
-        document.getElementById('record-status').textContent = '記録に失敗しました。再度お試しください。';
-      }).recordMeal([item]);
-    }
-
-    document.getElementById('record-add-from-master').addEventListener('click', function () {
-      var item = buildMasterItem();
-      if (!item) return;
-      recordItems.push(item);
-      renderRecordList();
-    });
-
-    document.getElementById('record-add-manual').addEventListener('click', function () {
-      var item = buildManualItem();
-      if (!item) return;
-      recordItems.push(item);
-      renderRecordList();
-      clearManualInputs();
-    });
-
-    document.getElementById('record-single-from-master').addEventListener('click', function () {
-      var item = buildMasterItem();
-      if (!item) return;
-      recordSingle(item);
-    });
-
-    document.getElementById('record-single-manual').addEventListener('click', function () {
-      var item = buildManualItem();
-      if (!item) return;
-      recordSingle(item, clearManualInputs);
+    document.getElementById('record-add-card').addEventListener('click', function () {
+      document.getElementById('record-cards').appendChild(createFoodCard());
+      syncRecordCards();
     });
 
     document.getElementById('record-submit').addEventListener('click', function () {
-      if (recordItems.length === 0) return;
+      if (recordSubmitting) return;
+      var items = Array.prototype.map.call(document.querySelectorAll('#record-cards .food-card'), buildCardItem)
+        .filter(function (item) { return item; });
+      if (items.length === 0) {
+        document.getElementById('record-status').textContent = '記録する食品を選んでください';
+        return;
+      }
       recordSubmitting = true;
-      renderRecordList();
+      syncRecordCards();
+      document.getElementById('record-status').textContent = '';
       invalidateViews();
       google.script.run.withSuccessHandler(function (result) {
         recordSubmitting = false;
         invalidateViews();
         document.getElementById('record-status').textContent = result.itemCount + '件記録しました';
-        recordItems = [];
-        renderRecordList();
-      }).withFailureHandler(function (err) {
+        resetRecordCards();
+      }).withFailureHandler(function () {
         recordSubmitting = false;
-        renderRecordList();
+        syncRecordCards();
         document.getElementById('record-status').textContent = '記録に失敗しました。再度お試しください。';
-      }).recordMeal(recordItems);
+      }).recordMeal(items);
     });
 
     var CALENDAR_FAIL_MESSAGE = 'カレンダーの読み込みに失敗しました。再度お試しください。';
