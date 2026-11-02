@@ -852,13 +852,13 @@
           '<button type="button" class="icon-remove card-remove" aria-label="この食品を削除">' + REMOVE_ICON_SVG + '</button>' +
           '<div class="master-box row">' +
             '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
-            '<label class="field qty"><span>個数</span><input class="master-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+            '<label class="field qty"><span>個数</span><input class="master-qty" type="number" inputmode="decimal" step="0.1" value="1" aria-label="個数"></label>' +
           '</div>' +
           '<div class="manual-box" hidden>' +
             '<div class="name-qty">' +
               '<label class="field grow"><span>食品名</span><input class="manual-name" placeholder="例: コンビニのおにぎり"></label>' +
               '<span class="times" aria-hidden="true">×</span>' +
-              '<label class="field qty"><span>個数</span><input class="manual-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
+              '<label class="field qty"><span>個数</span><input class="manual-qty" type="number" inputmode="decimal" step="0.1" value="1" aria-label="個数"></label>' +
             '</div>' +
             '<div class="manual-hint">栄養素は1個あたりの量を入力してください</div>' +
             '<div class="field-grid">' +
