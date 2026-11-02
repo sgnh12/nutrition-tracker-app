@@ -180,8 +180,9 @@
     .food-card .times { flex: none; padding-bottom: 12px; font-weight: 700; color: var(--muted); }
     .food-card .manual-hint { margin: 10px 0 8px; font-size: 0.78rem; color: var(--muted); }
     .food-card [hidden] { display: none !important; }
-    .card-remove { position: absolute; top: -12px; right: -8px; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
-    .card-remove:hover { color: var(--danger); border-color: var(--danger); }
+    .card-remove { position: absolute; top: -12px; right: -8px; }
+    .icon-remove { flex: none; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
+    .icon-remove:hover { color: var(--danger); border-color: var(--danger); }
     .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
     .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
     .past-datetime .field { width: 64px; }
@@ -720,6 +721,7 @@
       loadSettingsPanel(true);
     }
 
+    var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
     var MANUAL_OPTION_VALUE = '__manual__';
 
@@ -757,7 +759,7 @@
         var card = document.createElement('div');
         card.className = 'food-card';
         card.innerHTML =
-          '<button type="button" class="card-remove" aria-label="この食品を削除"><svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
+          '<button type="button" class="icon-remove card-remove" aria-label="この食品を削除">' + REMOVE_ICON_SVG + '</button>' +
           '<div class="master-box row">' +
             '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
             '<label class="field qty"><span>個数</span><input class="master-qty" type="number" step="0.1" value="1" aria-label="個数"></label>' +
@@ -1318,7 +1320,7 @@
         ul.innerHTML = foods.map(function (f, i) {
           return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><span class="item-name">' + escapeHtml(f.foodName) +
             ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + nutrientText(f) + '</span></span>' +
-            '<button data-name="' + escapeHtml(f.foodName) + '" class="btn-text master-delete">削除</button></li>';
+            '<button type="button" data-name="' + escapeHtml(f.foodName) + '" class="icon-remove master-delete" aria-label="' + escapeHtml(f.foodName) + 'を削除">' + REMOVE_ICON_SVG + '</button></li>';
         }).join('');
         document.querySelectorAll('.master-delete').forEach(function (btn) {
           btn.addEventListener('click', function () {
