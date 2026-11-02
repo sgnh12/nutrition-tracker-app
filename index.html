@@ -158,7 +158,10 @@
     .item-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
     .item-list li:first-child { border-top: none; }
     .item-name { min-width: 0; overflow-wrap: anywhere; }
-    .item-meta { color: var(--muted); font-size: 0.82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .item-meta { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+    .item-list li > .item-meta { text-align: right; }
+    .item-meta .nw { white-space: nowrap; }
+    .btn-text { flex: none; white-space: nowrap; }
     .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
     .empty .btn { margin-top: 12px; }
 
@@ -540,6 +543,12 @@
       return Number(value || 0).toLocaleString('ja-JP');
     }
 
+    // 「250 kcal, P: 4g, F: 1g, C: 55g」。狭い画面では、項目の区切りで折り返す
+    function nutrientText(row) {
+      return [formatNumber(row.calories) + ' kcal', 'P: ' + formatNumber(row.proteinG) + 'g', 'F: ' + formatNumber(row.fatG) + 'g', 'C: ' + formatNumber(row.carbsG) + 'g']
+        .map(function (t) { return '<span class="nw">' + t + '</span>'; }).join(', ');
+    }
+
     var WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
     // GASはページをiframeで埋め込むため<html lang>が届かない場合がある。日本語の字形を確実に使うため実行時にも指定する
     document.documentElement.lang = 'ja';
@@ -632,7 +641,7 @@
         var total = meal.items.reduce(function (sum, item) { return sum + Number(item.calories || 0); }, 0);
         var itemsHtml = meal.items.map(function (item) {
           return '<li><span class="item-name">' + escapeHtml(item.foodName) + '</span>' +
-            '<span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + formatNumber(item.calories) + ' kcal</span></li>';
+            '<span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + nutrientText(item) + '</span></li>';
         }).join('');
         return '<div class="meal-group"><div class="meal-head"><span class="meal-time">' + time + '</span>' +
           '<span class="meal-total">' + formatNumber(total) + ' kcal</span></div>' +
@@ -1308,7 +1317,7 @@
         }
         ul.innerHTML = foods.map(function (f, i) {
           return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><span class="item-name">' + escapeHtml(f.foodName) +
-            ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + formatNumber(f.calories) + ' kcal</span></span>' +
+            ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + nutrientText(f) + '</span></span>' +
             '<button data-name="' + escapeHtml(f.foodName) + '" class="btn-text master-delete">削除</button></li>';
         }).join('');
         document.querySelectorAll('.master-delete').forEach(function (btn) {
