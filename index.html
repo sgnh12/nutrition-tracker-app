@@ -974,8 +974,8 @@
       { title: 'タンパク質(g)', html: '<div class="logic-formula">体重(kg) × ' + logicInput('proteinPerKg') + '</div>' },
       { title: '脂質(g)', html: '<div class="logic-formula">目標カロリー × ' + logicInput('fatRatio') + ' ÷ 9</div>' },
       { title: '達成の範囲(目標に対する%)', html:
-        '<div class="logic-grid"><span>以下で達成: 下限(少なすぎライン)</span>' + logicInput('limitLowerPct') +
-        '<span>以上で達成: 上限(多すぎライン)</span>' + logicInput('limitUpperPct') + '</div>' +
+        '<div class="logic-grid"><span>以下で達成: 下限</span>' + logicInput('limitLowerPct') +
+        '<span>以上で達成: 上限</span>' + logicInput('limitUpperPct') + '</div>' +
         '<div class="logic-note" style="margin:8px 0 0">目標値の再計算のときに、各栄養素の達成範囲へ反映されます。タンパク質は上限なしです。</div>' },
       { title: '炭水化物(g)', html: '<div class="logic-formula fixed">(目標カロリー − タンパク質 × 4 − 脂質 × 9) ÷ 4</div>' +
         '<div class="logic-note" style="margin:8px 0 0">残りのカロリーを炭水化物にあてるため、数値の編集はありません。</div>' }
@@ -1063,10 +1063,10 @@
         .withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
     }
 
-    // 達成範囲の限界%。以下で達成は下限(少なすぎ)、以上で達成は上限(多すぎ。空欄=なし)
+    // 達成範囲の限界%。以下で達成は下限、以上で達成は上限(空欄=なし)
     var LIMIT_DEFAULT_PCT = { max: 85, min: 120 };
     function limitLabel(criterion) {
-      return criterion === 'min' ? '多すぎライン(目標の' : '少なすぎライン(目標の';
+      return criterion === 'min' ? '上限(目標の' : '下限(目標の';
     }
     function isValidLimitInput(criterion, raw) {
       var v = raw.trim();
