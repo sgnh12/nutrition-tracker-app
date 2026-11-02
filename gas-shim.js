@@ -170,13 +170,6 @@
     return Promise.resolve(false);
   }
 
-  function describePersistence() {
-    try {
-      if (root.navigator.storage && root.navigator.storage.persisted) return root.navigator.storage.persisted();
-    } catch (e) { /* 未対応のブラウザ */ }
-    return Promise.resolve(null);
-  }
-
   // ---------- 通信 ----------
 
   function makeError(message, code) {
@@ -337,43 +330,21 @@
       finishSetup(cfg);
       status.textContent = '';
       overlay.classList.remove('open');
-      renderSummary();
     }, function (err) {
       var saved = err && err.code ? ' 入力した内容はこのスマホに保存されています。' : '';
       status.textContent = (err && err.message ? err.message : '接続できませんでした。') + saved;
     }).then(function () { btn.disabled = false; });
   }
 
-  // 設定画面の末尾に「接続」欄を足す
-  function renderSummary() {
-    var box = el('conn-summary');
-    if (!box) return;
-    var cfg = state.cfg;
-    describePersistence().then(function (persisted) {
-      var lines = [];
-      lines.push('合言葉: ' + (cfg && cfg.token ? '保存済み' : '未設定'));
-      lines.push('接続先: ' + (cfg && cfg.url ? '…' + cfg.url.slice(-12) : '未設定'));
-      if (persisted === true) lines.push('保存の保護: 有効(ブラウザに消されにくい設定)');
-      else if (persisted === false) lines.push('保存の保護: 未確認(ホーム画面に追加すると有効になりやすい)');
-      box.textContent = lines.join(' / ');
-    });
-  }
-
+  // 設定画面の末尾に、接続設定を開くボタンだけを足す
   function addSettingsSection() {
     var tab = el('tab-settings');
-    if (!tab || el('conn-summary')) return;
-    var title = document.createElement('h2');
-    title.className = 'section-title';
-    title.textContent = '接続';
+    if (!tab || el('conn-open')) return;
     var card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML =
-      '<div id="conn-summary" class="status" role="status"></div>' +
-      '<button type="button" class="btn btn-block" id="conn-open">接続設定を開く</button>';
-    tab.appendChild(title);
+    card.innerHTML = '<button type="button" class="btn btn-block" id="conn-open">接続設定</button>';
     tab.appendChild(card);
     el('conn-open').addEventListener('click', function () { openSetup(''); });
-    ready().then(renderSummary);
   }
 
   // ---------- 起動 ----------
