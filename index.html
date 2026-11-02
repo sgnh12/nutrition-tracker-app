@@ -206,6 +206,8 @@
     .food-card [hidden] { display: none !important; }
     .card-remove { position: absolute; top: -10px; right: -6px; }
     .icon-remove { flex: none; width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
+    .drag-handle { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: -6px; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .master-row.dragging { background: var(--surface); box-shadow: 0 4px 14px rgba(0,0,0,0.15); position: relative; z-index: 1; }
     .icon-remove:hover { color: var(--danger); border-color: var(--danger); }
     .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
     .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
@@ -821,11 +823,12 @@
     }
 
     var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    var HANDLE_ICON_SVG = '<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><path d="M1 2h16M1 7h16M1 12h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
     var MANUAL_OPTION_VALUE = '__manual__';
 
     function foodOptionsHtml() {
-      return '<option value="">-- 食品マスタから選択 --</option>' +
+      return '<option value=""></option>' +
         '<option value="' + MANUAL_OPTION_VALUE + '">-- 手入力追加 --</option>' +
         foodMasterCache.map(function (f) { return '<option value="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + ' (' + escapeHtml(f.unitName) + ')</option>'; }).join('');
     }
@@ -1540,11 +1543,57 @@
           return;
         }
         ul.innerHTML = foods.map(function (f, i) {
-          return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><div class="item-text"><div class="item-line"><span class="item-name">' + escapeHtml(f.foodName) + '</span> ' +
+          return '<li class="master-row" data-name="' + escapeHtml(f.foodName) + '" style="--i:' + Math.min(i, 12) + '">' +
+            '<span class="drag-handle" role="button" aria-label="' + escapeHtml(f.foodName) + 'をドラッグして並べ替え">' + HANDLE_ICON_SVG + '</span>' +
+            '<div class="item-text"><div class="item-line"><span class="item-name">' + escapeHtml(f.foodName) + '</span> ' +
             '<span class="item-meta">1' + escapeHtml(f.unitName) + '</span></div>' +
             '<div class="item-nutr">' + nutrientText(f) + '</div></div>' +
             '<button type="button" data-name="' + escapeHtml(f.foodName) + '" class="icon-remove master-delete" aria-label="' + escapeHtml(f.foodName) + 'を削除">' + REMOVE_ICON_SVG + '</button></li>';
         }).join('');
+        document.querySelectorAll('.drag-handle').forEach(function (handle) {
+          handle.addEventListener('pointerdown', function (e) {
+            var row = handle.closest('.master-row');
+            var before = Array.prototype.map.call(ul.children, function (li) { return li.dataset.name; });
+            e.preventDefault();
+            row.classList.add('dragging');
+            function onMove(ev) {
+              var rows = Array.prototype.slice.call(ul.querySelectorAll('.master-row'));
+              for (var k = 0; k < rows.length; k++) {
+                var r = rows[k];
+                if (r === row) continue;
+                var box = r.getBoundingClientRect();
+                if (ev.clientY < box.top || ev.clientY > box.bottom) continue;
+                var mid = box.top + box.height / 2;
+                var rowIsAbove = !!(row.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING);
+                if (rowIsAbove && ev.clientY > mid) ul.insertBefore(row, r.nextSibling);
+                else if (!rowIsAbove && ev.clientY < mid) ul.insertBefore(row, r);
+                break;
+              }
+            }
+            function onEnd() {
+              document.removeEventListener('pointermove', onMove);
+              document.removeEventListener('pointerup', onEnd);
+              document.removeEventListener('pointercancel', onEnd);
+              row.classList.remove('dragging');
+              var names = Array.prototype.map.call(ul.children, function (li) { return li.dataset.name; });
+              if (names.join('|') === before.join('|')) return;
+              var moved = names.map(function (n) { return foods.filter(function (f) { return f.foodName === n; })[0]; });
+              foodMasterCache = moved;
+              document.querySelectorAll('.food-select').forEach(function (select) {
+                var v = select.value;
+                select.innerHTML = foodOptionsHtml();
+                select.value = v;
+              });
+              invalidateViews();
+              google.script.run.withSuccessHandler(function () { invalidateViews(); })
+                .withFailureHandler(function () { failHandler('並べ替えの保存に失敗しました。再度お試しください。')(); loadFoodMasterList(); })
+                .reorderFoodMaster(names);
+            }
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onEnd);
+            document.addEventListener('pointercancel', onEnd);
+          });
+        });
         document.querySelectorAll('.master-delete').forEach(function (btn) {
           btn.addEventListener('click', function () {
             invalidateViews();
