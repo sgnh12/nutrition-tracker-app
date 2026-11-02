@@ -206,6 +206,8 @@
     .day { height: 56px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); font-family: var(--font-display); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); }
     .day:nth-child(7n) { border-right: none; }
     .day span { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .day[data-date] { cursor: pointer; }
+    .day[data-date]:active span { filter: brightness(0.9); }
     .day.future { color: #aab6bf; }
     .day.today { font-weight: 700; }
     .day.achieved span { background: #d6ec9f; }
@@ -249,6 +251,8 @@
     .modal-panel { display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 100%; background: var(--surface); border-radius: 16px; overflow: hidden; }
     .modal-head { padding: 16px 20px 8px; font-weight: 700; font-size: 1.05rem; }
     .modal-body { padding: 4px 20px 16px; overflow-y: auto; }
+    #day-modal .modal-body { min-height: 120px; }
+    #day-modal .meal-group { box-shadow: none; border: 1px solid var(--line); }
     .modal-foot { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
     .modal-foot .btn { flex: 1; }
     .btn.btn-save:disabled { opacity: 1; background: #d5dde3; color: #8795a0; }
@@ -292,6 +296,20 @@
       <div class="modal-foot">
         <button type="button" class="btn" id="logic-close">閉じる</button>
         <button type="button" class="btn btn-primary btn-save" id="logic-save" disabled>保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="day-modal" role="dialog" aria-modal="true" aria-labelledby="day-title">
+    <div class="modal-panel">
+      <div class="modal-head" id="day-title"></div>
+      <div class="modal-body">
+        <div id="day-status" class="status" role="status"></div>
+        <div id="day-pies" class="pie-grid"></div>
+        <h2 class="section-title" id="day-list-title" hidden>記録履歴</h2>
+        <div id="day-list"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="day-close">閉じる</button>
       </div>
     </div>
   </div>
@@ -597,8 +615,8 @@
       '</div>';
     }
 
-    function renderTodayMealsList(todayIntake) {
-      if (todayIntake.length === 0) return '<div class="card empty">まだ記録がありません。「記録」タブから今日の食事を追加してください。</div>';
+    function renderTodayMealsList(todayIntake, emptyText) {
+      if (todayIntake.length === 0) return '<div class="card empty">' + (emptyText || 'まだ記録がありません。「記録」タブから今日の食事を追加してください。') + '</div>';
       var byMeal = {};
       todayIntake.forEach(function (row) {
         if (!byMeal[row.mealId]) byMeal[row.mealId] = { timestamp: row.timestamp, items: [] };
@@ -960,12 +978,73 @@
           var dateStr = currentYearMonth() + '-' + (d < 10 ? '0' + d : d);
           var achieved = !!achievementByDate[dateStr];
           var cls = 'day' + (achieved ? ' achieved' : '') + (dateStr === today ? ' today' : '') + (dateStr > today ? ' future' : '');
-          html += '<div class="' + cls + '" aria-label="' + d + '日' + (achieved ? ' 達成' : '') + '"><span>' + d + '</span></div>';
+          var tappable = dateStr <= today;
+          html += '<div class="' + cls + '"' + (tappable ? ' data-date="' + dateStr + '" role="button" tabindex="0"' : '') +
+            ' aria-label="' + d + '日' + (achieved ? ' 達成' : '') + '"><span>' + d + '</span></div>';
         }
         var tail = (7 - ((offset + daysInMonth) % 7)) % 7;
         for (var j = 0; j < tail; j++) html += '<div class="day"></div>';
         grid.innerHTML = html;
     }
+
+    // ---- 日付をタップしたときの、その日の記録 ----
+    var dayModalDate = '';
+
+    function closeDayModal() {
+      dayModalDate = '';
+      document.getElementById('day-modal').classList.remove('open');
+    }
+
+    function renderDayDetail(date, data) {
+      if (dayModalDate !== date) return; // 閉じた後や、別の日を開いた後に届いた結果は使わない
+      document.getElementById('day-status').textContent = '';
+      var pies = document.getElementById('day-pies');
+      var list = document.getElementById('day-list');
+      document.getElementById('day-list-title').hidden = false;
+      if (!data.profile) {
+        pies.innerHTML = '';
+        list.innerHTML = '<div class="card empty">プロフィールが未設定のため、目標との比較は表示できません。</div>';
+        return;
+      }
+      pies.innerHTML = data.settings.filter(function (s) { return s.tracked; }).map(function (s) {
+        var intakeKey = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
+        var consumed = data.intake.reduce(function (sum, row) { return sum + Number(row[intakeKey] || 0); }, 0);
+        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue));
+      }).join('');
+      list.innerHTML = renderTodayMealsList(data.intake, 'この日の記録はありません。');
+    }
+
+    function openDayModal(date) {
+      var parts = date.split('-');
+      var weekday = ['日', '月', '火', '水', '木', '金', '土'][new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay()];
+      dayModalDate = date;
+      document.getElementById('day-title').textContent = Number(parts[1]) + '月' + Number(parts[2]) + '日(' + weekday + ')';
+      document.getElementById('day-pies').innerHTML = '';
+      document.getElementById('day-list').innerHTML = '';
+      document.getElementById('day-list-title').hidden = true;
+      document.getElementById('day-status').textContent = '読み込み中…';
+      document.getElementById('day-modal').classList.add('open');
+      loadView('day:' + date, function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(function (err) {
+          if (dayModalDate === date) document.getElementById('day-status').textContent = '読み込みに失敗しました。閉じてもう一度お試しください。';
+          fail(err);
+        }).getDayDetail(date);
+      }, function (data) { renderDayDetail(date, data); }, 'その日の記録の読み込みに失敗しました。再度お試しください。');
+    }
+
+    document.getElementById('calendar-grid').addEventListener('click', function (e) {
+      var cell = e.target.closest ? e.target.closest('.day[data-date]') : null;
+      if (cell) openDayModal(cell.dataset.date);
+    });
+    document.getElementById('calendar-grid').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var cell = e.target.closest ? e.target.closest('.day[data-date]') : null;
+      if (cell) { e.preventDefault(); openDayModal(cell.dataset.date); }
+    });
+    document.getElementById('day-close').addEventListener('click', closeDayModal);
+    document.getElementById('day-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeDayModal();
+    });
 
     document.getElementById('calendar-nutrient-select').addEventListener('change', function (e) {
       loadCalendarGrid(e.target.value);
