@@ -213,6 +213,8 @@
     .past-record .manual-hint { margin: 8px 0 0; min-height: 1.2em; }
     .past-record #past-form { margin-top: 12px; }
     details.registered[open] .past-body, details.registered[open] .fold-body { animation: row-in 0.22s ease-out both; }
+    .card-nutr { margin-top: 8px; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .food-card .card-nutr[hidden] { display: none; }
     .add-card-row { display: flex; justify-content: center; margin: 4px 0 0; }
     .add-card-row:has(.btn-add[hidden]) { display: none; }
     .btn-add { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-size: 1.4rem; line-height: 1; font-weight: 700; cursor: pointer; }
@@ -865,7 +867,8 @@
               '<label class="field"><span>脂質 (g)</span><input class="manual-fat" type="number" inputmode="decimal"></label>' +
               '<label class="field"><span>炭水化物 (g)</span><input class="manual-carbs" type="number" inputmode="decimal"></label>' +
             '</div>' +
-          '</div>';
+          '</div>' +
+          (cfg.showNutrients ? '<div class="card-nutr" hidden></div>' : '');
         card.querySelector('.food-select').addEventListener('change', function () {
           var isManual = this.value === MANUAL_OPTION_VALUE;
           card.querySelector('.master-box .qty').hidden = isManual;
@@ -888,9 +891,21 @@
         var last = cards[cards.length - 1];
         addBtn.hidden = !(last && last.querySelector('.food-select').value);
         if (submitBtn) submitBtn.disabled = submitting;
+        notifyChange();
+      }
+      // 選んだ食品と個数の分の栄養素を、カードの下に小さく出す(cfg.showNutrients のとき)
+      function notifyChange() {
+        if (cfg.showNutrients) {
+          cardsEl.querySelectorAll('.food-card').forEach(function (card) {
+            var item = buildCardItem(card);
+            var el = card.querySelector('.card-nutr');
+            el.hidden = !item;
+            if (item) el.innerHTML = nutrientText(item);
+          });
+        }
         if (cfg.onChange) cfg.onChange();
       }
-      cardsEl.addEventListener('input', function () { if (cfg.onChange) cfg.onChange(); });
+      cardsEl.addEventListener('input', notifyChange);
 
       function getItems() {
         return Array.prototype.map.call(cardsEl.querySelectorAll('.food-card'), buildCardItem)
@@ -1037,7 +1052,7 @@
       });
     }
 
-    var validationForm = createRecordForm({ cardsId: 'validation-cards', addId: 'validation-add-card', onChange: renderValidation });
+    var validationForm = createRecordForm({ cardsId: 'validation-cards', addId: 'validation-add-card', showNutrients: true, onChange: renderValidation });
 
     function openValidation() {
       document.getElementById('validation-screen').hidden = false;
