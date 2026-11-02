@@ -207,7 +207,9 @@
     .card-remove { position: absolute; top: -10px; right: -6px; }
     .icon-remove { flex: none; width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
     .drag-handle { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: -6px; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-    .master-row.dragging { background: var(--surface); box-shadow: 0 4px 14px rgba(0,0,0,0.15); position: relative; z-index: 1; }
+    .master-row { position: relative; }
+    .master-row.dragging { background: var(--surface); box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 1; }
+    #master-list { position: relative; }
     .icon-remove:hover { color: var(--danger); border-color: var(--danger); }
     .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
     .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
@@ -823,6 +825,26 @@
     }
 
     var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    // 触覚フィードバック。Androidはvibrate、iPhoneは「switch」属性のチェックボックスを切り替えると小さく震える
+    var hapticSwitch = null;
+    function hapticTick() {
+      try {
+        if (navigator.vibrate && navigator.vibrate(10)) return;
+        if (!hapticSwitch) {
+          var label = document.createElement('label');
+          label.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+          label.setAttribute('aria-hidden', 'true');
+          var input = document.createElement('input');
+          input.type = 'checkbox';
+          input.setAttribute('switch', '');
+          input.tabIndex = -1;
+          label.appendChild(input);
+          document.body.appendChild(label);
+          hapticSwitch = label;
+        }
+        hapticSwitch.click();
+      } catch (err) { /* 触覚が使えない端末では何もしない */ }
+    }
     var HANDLE_ICON_SVG = '<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><path d="M1 2h16M1 7h16M1 12h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
     var MANUAL_OPTION_VALUE = '__manual__';
@@ -1555,26 +1577,50 @@
             var row = handle.closest('.master-row');
             var before = Array.prototype.map.call(ul.children, function (li) { return li.dataset.name; });
             e.preventDefault();
+            var grab = e.clientY - row.getBoundingClientRect().top;
             row.classList.add('dragging');
+            row.style.transition = 'none';
+            hapticTick();
+            // 他の行を、今の見た目の位置から新しい位置へ滑らかに動かす
+            function glide(el, mutate) {
+              var first = el.getBoundingClientRect().top;
+              mutate();
+              el.style.transition = 'none';
+              el.style.transform = '';
+              var delta = first - el.getBoundingClientRect().top;
+              if (!delta) return;
+              el.style.transform = 'translateY(' + delta + 'px)';
+              el.getBoundingClientRect();
+              el.style.transition = 'transform 0.2s cubic-bezier(.2,.7,.2,1)';
+              el.style.transform = '';
+            }
+            function follow(clientY) {
+              row.style.transform = 'none';
+              var slotTop = row.getBoundingClientRect().top;
+              row.style.transform = 'translateY(' + (clientY - grab - slotTop) + 'px) scale(1.03)';
+            }
             function onMove(ev) {
-              var rows = Array.prototype.slice.call(ul.querySelectorAll('.master-row'));
-              for (var k = 0; k < rows.length; k++) {
-                var r = rows[k];
-                if (r === row) continue;
-                var box = r.getBoundingClientRect();
-                if (ev.clientY < box.top || ev.clientY > box.bottom) continue;
-                var mid = box.top + box.height / 2;
-                var rowIsAbove = !!(row.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING);
-                if (rowIsAbove && ev.clientY > mid) ul.insertBefore(row, r.nextSibling);
-                else if (!rowIsAbove && ev.clientY < mid) ul.insertBefore(row, r);
-                break;
+              var center = ev.clientY - grab + row.offsetHeight / 2;
+              var ulTop = ul.getBoundingClientRect().top;
+              for (var guard = 0; guard < 50; guard++) {
+                var next = row.nextElementSibling;
+                var prev = row.previousElementSibling;
+                var nextMid = next && ulTop + next.offsetTop + next.offsetHeight / 2;
+                var prevMid = prev && ulTop + prev.offsetTop + prev.offsetHeight / 2;
+                if (next && center > nextMid) glide(next, function () { ul.insertBefore(row, next.nextSibling); });
+                else if (prev && center < prevMid) glide(prev, function () { ul.insertBefore(row, prev); });
+                else break;
+                hapticTick();
               }
+              follow(ev.clientY);
             }
             function onEnd() {
               document.removeEventListener('pointermove', onMove);
               document.removeEventListener('pointerup', onEnd);
               document.removeEventListener('pointercancel', onEnd);
               row.classList.remove('dragging');
+              row.style.transition = 'transform 0.2s cubic-bezier(.2,.7,.2,1)';
+              row.style.transform = '';
               var names = Array.prototype.map.call(ul.children, function (li) { return li.dataset.name; });
               if (names.join('|') === before.join('|')) return;
               var moved = names.map(function (n) { return foods.filter(function (f) { return f.foodName === n; })[0]; });
