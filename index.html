@@ -159,6 +159,24 @@
     .item-list li:first-child { border-top: none; }
     .item-name { min-width: 0; overflow-wrap: anywhere; }
     .item-meta { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+    /* ---- 読み込み中の表示(横に並んだ水色の3つの点が、下へ沈みながら消え、上から降りて戻る) ---- */
+    .loader { --down: 10px; --up: -12px; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 72px; }
+    .loader.sm { --down: 7px; --up: -8px; gap: 4px; min-height: 28px; }
+    .loader i {
+      width: 14px; height: 14px; border-radius: 50%; background: #4fb7f5; box-shadow: 0 0 8px rgba(79, 183, 245, 0.4);
+      animation: loader-drop 0.95s infinite; will-change: transform, opacity;
+    }
+    .loader.sm i { width: 9px; height: 9px; box-shadow: 0 0 5px rgba(79, 183, 245, 0.4); }
+    .loader i:nth-child(2) { animation-delay: 0.03s; }
+    .loader i:nth-child(3) { animation-delay: 0.1s; }
+    @keyframes loader-drop {
+      0% { transform: translate3d(0, 0, 0); opacity: 1; animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
+      17% { transform: translate3d(0, var(--down), 0); opacity: 0; }
+      18% { transform: translate3d(0, var(--up), 0); opacity: 0; animation-timing-function: cubic-bezier(0.15, 0.6, 0.35, 1); }
+      58%, 100% { transform: translate3d(0, 0, 0); opacity: 1; }
+    }
+    @keyframes loader-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+    .pie-grid > .loader { grid-column: 1 / -1; }
     .item-text { flex: 1; min-width: 0; }
     .item-line { line-height: 1.5; }
     .item-nutr { margin-top: 2px; color: var(--muted); font-size: 0.82rem; line-height: 1.6; font-variant-numeric: tabular-nums; }
@@ -282,6 +300,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .ring .arc { animation: none; }
+      .loader i { animation-name: loader-pulse; }
       details.registered[open] li { animation: none; }
       details.registered[open] .past-body, details.registered[open] .fold-body { animation: none; }
     }
@@ -675,6 +694,14 @@
     // ---- 画面データの保持 ----
     // 一度読んだ内容を覚えておき、タブを開いたらまず覚えている内容を表示して、裏で取り直した最新で差し替える。
     // 保存などの書き込みをしたら、覚えている内容はすべて捨てる(古い内容を見せないため)
+    var LOADER_HTML = '<i></i><i></i><i></i>';
+    function loaderHtml(small) { return '<div class="loader' + (small ? ' sm' : '') + '" role="status" aria-label="読み込み中">' + LOADER_HTML + '</div>'; }
+    function showLoader(el, small) { if (el) el.innerHTML = loaderHtml(small); }
+    function clearLoader(el) {
+      var loader = el && el.querySelector(':scope > .loader');
+      if (loader) el.removeChild(loader);
+    }
+
     var viewCache = {};
     var viewSeq = {};
     var viewEpoch = 0;
@@ -689,20 +716,25 @@
       var epoch = viewEpoch;
       var shown = null;
       var cached = viewCache[key];
-      if (cached) { render(cached.data); shown = cached.json; }
+      var loaderEls = (opts.loader ? [].concat(opts.loader) : []).map(function (id) { return document.getElementById(id); });
+      if (cached) { render(cached.data); shown = cached.json; } else loaderEls.forEach(function (el) { showLoader(el); });
       fetcher(function (data) {
         if (viewSeq[key] !== seq) return; // 後から始めた読み込みがあれば、古い方の結果は使わない
         var json = JSON.stringify(data);
         if (epoch === viewEpoch) viewCache[key] = { data: data, json: json }; // 読み込み中に保存があったら、覚えない
         if (json !== shown && !(shown !== null && opts.canRender && !opts.canRender())) render(data);
+        loaderEls.forEach(clearLoader);
         if (opts.onLoaded) opts.onLoaded();
-      }, opts.quiet ? function () {} : failHandler(failMessage));
+      }, function (err) {
+        loaderEls.forEach(clearLoader);
+        if (!opts.quiet) failHandler(failMessage)(err);
+      });
     }
 
     function loadDashboard() {
       loadView('dashboard', function (ok, fail) {
         google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getDashboardData();
-      }, renderDashboard, 'ダッシュボードの読み込みに失敗しました。再度お試しください。', { onLoaded: prefetchViews });
+      }, renderDashboard, 'ダッシュボードの読み込みに失敗しました。再度お試しください。', { onLoaded: prefetchViews, loader: 'dashboard-pies' });
     }
 
     function renderDashboard(data) {
@@ -873,7 +905,7 @@
         }
         submitting = true;
         sync();
-        statusEl.textContent = '';
+        statusEl.innerHTML = loaderHtml(true);
         invalidateViews();
         var run = google.script.run.withSuccessHandler(function (result) {
           submitting = false;
@@ -959,7 +991,7 @@
         setCalendarMonthLabel(yearMonth);
         if (data.achievement === null) { failHandler(CALENDAR_FAIL_MESSAGE)(); return; }
         renderCalendarGrid(data.achievement);
-      }, CALENDAR_FAIL_MESSAGE, { quiet: quiet });
+      }, CALENDAR_FAIL_MESSAGE, { quiet: quiet, loader: 'calendar-grid' });
     }
 
     function currentYearMonth() {
@@ -983,7 +1015,10 @@
     function loadCalendarGrid(nutrientName) {
       var yearMonth = currentYearMonth();
       setCalendarMonthLabel(yearMonth);
-      google.script.run.withSuccessHandler(renderCalendarGrid).withFailureHandler(failHandler(CALENDAR_FAIL_MESSAGE)).getMonthAchievement(yearMonth, nutrientName);
+      var grid = document.getElementById('calendar-grid');
+      showLoader(grid);
+      var fail = failHandler(CALENDAR_FAIL_MESSAGE);
+      google.script.run.withSuccessHandler(renderCalendarGrid).withFailureHandler(function (err) { clearLoader(grid); fail(err); }).getMonthAchievement(yearMonth, nutrientName);
     }
 
     // サーバーは今日までの達成状況しか返さないので、その月の全日をここで並べる(未来の日は未達成のまま薄く表示)
@@ -1045,7 +1080,7 @@
       document.getElementById('day-pies').innerHTML = '';
       document.getElementById('day-list').innerHTML = '';
       document.getElementById('day-list-title').hidden = true;
-      document.getElementById('day-status').textContent = '読み込み中…';
+      document.getElementById('day-status').innerHTML = loaderHtml(true);
       document.getElementById('day-modal').classList.add('open');
       loadView('day:' + date, function (ok, fail) {
         google.script.run.withSuccessHandler(ok).withFailureHandler(function (err) {
@@ -1092,6 +1127,7 @@
         renderFoodMasterList(data.foods);
       }, '設定の読み込みに失敗しました。再度お試しください。', {
         quiet: quiet,
+        loader: ['master-list', 'nutrient-settings-list'],
         // 入力中の欄がある間は、取り直した内容で書き換えない
         canRender: function () {
           var a = document.activeElement;
@@ -1207,7 +1243,7 @@
 
     document.getElementById('logic-open').addEventListener('click', function () {
       var status = document.getElementById('logic-status');
-      status.textContent = '読み込み中…';
+      status.innerHTML = loaderHtml(true);
       logicSaved = null;
       document.getElementById('logic-save').disabled = true;
       document.getElementById('logic-modal').classList.add('open');
