@@ -159,8 +159,10 @@
     .item-list li:first-child { border-top: none; }
     .item-name { min-width: 0; overflow-wrap: anywhere; }
     .item-meta { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
-    .item-list li > .item-meta { text-align: right; }
-    .item-meta .nw { white-space: nowrap; }
+    .item-text { flex: 1; min-width: 0; }
+    .item-line { line-height: 1.5; }
+    .item-nutr { margin-top: 2px; color: var(--muted); font-size: 0.82rem; line-height: 1.6; font-variant-numeric: tabular-nums; }
+    .item-nutr .nw { display: inline-block; margin-right: 0.5em; white-space: nowrap; }
     .btn-text { flex: none; white-space: nowrap; }
     .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
     .empty .btn { margin-top: 12px; }
@@ -180,8 +182,8 @@
     .food-card .times { flex: none; padding-bottom: 12px; font-weight: 700; color: var(--muted); }
     .food-card .manual-hint { margin: 10px 0 8px; font-size: 0.78rem; color: var(--muted); }
     .food-card [hidden] { display: none !important; }
-    .card-remove { position: absolute; top: -12px; right: -8px; }
-    .icon-remove { flex: none; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
+    .card-remove { position: absolute; top: -10px; right: -6px; }
+    .icon-remove { flex: none; width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); cursor: pointer; }
     .icon-remove:hover { color: var(--danger); border-color: var(--danger); }
     .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
     .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
@@ -547,7 +549,7 @@
     // 「250 kcal, P: 4g, F: 1g, C: 55g」。狭い画面では、項目の区切りで折り返す
     function nutrientText(row) {
       return [formatNumber(row.calories) + ' kcal', 'P: ' + formatNumber(row.proteinG) + 'g', 'F: ' + formatNumber(row.fatG) + 'g', 'C: ' + formatNumber(row.carbsG) + 'g']
-        .map(function (t) { return '<span class="nw">' + t + '</span>'; }).join(', ');
+        .map(function (t, i, all) { return '<span class="nw">' + t + (i < all.length - 1 ? ',' : '') + '</span>'; }).join(' ');
     }
 
     var WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -641,8 +643,9 @@
         var time = new Date(meal.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         var total = meal.items.reduce(function (sum, item) { return sum + Number(item.calories || 0); }, 0);
         var itemsHtml = meal.items.map(function (item) {
-          return '<li><span class="item-name">' + escapeHtml(item.foodName) + '</span>' +
-            '<span class="item-meta">×' + escapeHtml(item.quantity) + ' · ' + nutrientText(item) + '</span></li>';
+          return '<li><div class="item-text"><div class="item-line"><span class="item-name">' + escapeHtml(item.foodName) + '</span> ' +
+            '<span class="item-meta">×' + escapeHtml(item.quantity) + '</span></div>' +
+            '<div class="item-nutr">' + nutrientText(item) + '</div></div></li>';
         }).join('');
         return '<div class="meal-group"><div class="meal-head"><span class="meal-time">' + time + '</span>' +
           '<span class="meal-total">' + formatNumber(total) + ' kcal</span></div>' +
@@ -721,7 +724,7 @@
       loadSettingsPanel(true);
     }
 
-    var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
     var MANUAL_OPTION_VALUE = '__manual__';
 
@@ -1318,8 +1321,9 @@
           return;
         }
         ul.innerHTML = foods.map(function (f, i) {
-          return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><span class="item-name">' + escapeHtml(f.foodName) +
-            ' <span class="item-meta">1' + escapeHtml(f.unitName) + ' · ' + nutrientText(f) + '</span></span>' +
+          return '<li class="master-row" style="--i:' + Math.min(i, 12) + '"><div class="item-text"><div class="item-line"><span class="item-name">' + escapeHtml(f.foodName) + '</span> ' +
+            '<span class="item-meta">1' + escapeHtml(f.unitName) + '</span></div>' +
+            '<div class="item-nutr">' + nutrientText(f) + '</div></div>' +
             '<button type="button" data-name="' + escapeHtml(f.foodName) + '" class="icon-remove master-delete" aria-label="' + escapeHtml(f.foodName) + 'を削除">' + REMOVE_ICON_SVG + '</button></li>';
         }).join('');
         document.querySelectorAll('.master-delete').forEach(function (btn) {
