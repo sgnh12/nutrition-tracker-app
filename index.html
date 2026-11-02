@@ -973,6 +973,10 @@
         '<span>減量の係数</span>' + logicInput('goalCut') + '</div>' },
       { title: 'タンパク質(g)', html: '<div class="logic-formula">体重(kg) × ' + logicInput('proteinPerKg') + '</div>' },
       { title: '脂質(g)', html: '<div class="logic-formula">目標カロリー × ' + logicInput('fatRatio') + ' ÷ 9</div>' },
+      { title: '達成の範囲(目標に対する%)', html:
+        '<div class="logic-grid"><span>以下で達成: 下限(少なすぎライン)</span>' + logicInput('limitLowerPct') +
+        '<span>以上で達成: 上限(多すぎライン)</span>' + logicInput('limitUpperPct') + '</div>' +
+        '<div class="logic-note" style="margin:8px 0 0">目標値の再計算のときに、各栄養素の達成範囲へ反映されます。タンパク質は上限なしです。</div>' },
       { title: '炭水化物(g)', html: '<div class="logic-formula fixed">(目標カロリー − タンパク質 × 4 − 脂質 × 9) ÷ 4</div>' +
         '<div class="logic-note" style="margin:8px 0 0">残りのカロリーを炭水化物にあてるため、数値の編集はありません。</div>' }
     ];
@@ -1059,6 +1063,17 @@
         .withFailureHandler(failHandler('栄養素設定の読み込みに失敗しました。再度お試しください。')).getNutrientSettings();
     }
 
+    // 達成範囲の限界%。以下で達成は下限(少なすぎ)、以上で達成は上限(多すぎ。空欄=なし)
+    var LIMIT_DEFAULT_PCT = { max: 85, min: 120 };
+    function limitLabel(criterion) {
+      return criterion === 'min' ? '多すぎライン(目標の' : '少なすぎライン(目標の';
+    }
+    function isValidLimitInput(criterion, raw) {
+      var v = raw.trim();
+      if (criterion === 'min') return v === '' || (isFinite(Number(v)) && Number(v) >= 100);
+      return v !== '' && isFinite(Number(v)) && Number(v) > 0 && Number(v) <= 100;
+    }
+
     function renderNutrientSettingsList(settings) {
         var ul = document.getElementById('nutrient-settings-list');
         ul.innerHTML = settings.map(function (s, i) {
@@ -1073,18 +1088,43 @@
                 '<option value="max" ' + (s.criterion === 'max' ? 'selected' : '') + '>以下で達成</option>' +
               '</select>' +
             '</div>' +
+            '<div class="target-box">' +
+              '<span class="muted nutrient-limit-label" data-index="' + i + '">' + limitLabel(s.criterion) + '</span>' +
+              '<input type="number" inputmode="decimal" data-index="' + i + '" class="nutrient-limit" aria-label="限界の%" value="' + escapeHtml(s.limitPct === null || s.limitPct === undefined ? '' : s.limitPct) + '" placeholder="' + (s.criterion === 'min' ? 'なし' : '') + '">' +
+              '<span class="muted">%)</span>' +
+            '</div>' +
           '</li>';
         }).join('') + '<li><button class="btn btn-primary btn-block" id="nutrient-settings-save">栄養素設定を保存</button></li>';
 
+        // 基準を変えたら、限界%も新しい基準の初期値に切り替える(以下=下限85 / 以上=上限120)
+        document.querySelectorAll('.nutrient-criterion').forEach(function (sel) {
+          sel.addEventListener('change', function () {
+            var i = sel.dataset.index;
+            document.querySelector('.nutrient-limit-label[data-index="' + i + '"]').textContent = limitLabel(sel.value);
+            var input = document.querySelector('.nutrient-limit[data-index="' + i + '"]');
+            input.value = LIMIT_DEFAULT_PCT[sel.value];
+            input.placeholder = sel.value === 'min' ? 'なし' : '';
+          });
+        });
+
         document.getElementById('nutrient-settings-save').addEventListener('click', function () {
+          var invalidName = null;
           var updated = settings.map(function (s, i) {
+            var criterion = document.querySelector('.nutrient-criterion[data-index="' + i + '"]').value;
+            var limitRaw = document.querySelector('.nutrient-limit[data-index="' + i + '"]').value;
+            if (!isValidLimitInput(criterion, limitRaw) && !invalidName) invalidName = NUTRIENT_LABEL[s.nutrientName] || s.nutrientName;
             return {
               nutrientName: s.nutrientName,
               tracked: document.querySelector('.nutrient-tracked[data-index="' + i + '"]').checked,
               targetValue: Number(document.querySelector('.nutrient-target[data-index="' + i + '"]').value),
-              criterion: document.querySelector('.nutrient-criterion[data-index="' + i + '"]').value
+              criterion: criterion,
+              limitPct: limitRaw.trim() === '' ? null : Number(limitRaw)
             };
           });
+          if (invalidName) {
+            document.getElementById('nutrient-status').textContent = invalidName + 'の限界%を確認してください(以下で達成は1〜100、以上で達成は100以上か空欄)';
+            return;
+          }
           invalidateViews();
           google.script.run.withSuccessHandler(function () {
             invalidateViews();
