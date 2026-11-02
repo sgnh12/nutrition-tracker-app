@@ -208,7 +208,8 @@
     .icon-remove:hover { color: var(--danger); border-color: var(--danger); }
     .past-datetime { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 8px; }
     .past-datetime .dt-group { display: flex; align-items: flex-end; gap: 6px; }
-    .past-datetime .field { width: 64px; }
+    .past-datetime .field { width: 60px; }
+    .past-datetime input { padding-left: 6px; padding-right: 6px; text-align: center; }
     .past-datetime .dt-sep { padding-bottom: 12px; font-weight: 700; color: var(--muted); }
     .past-record .manual-hint { margin: 8px 0 0; min-height: 1.2em; }
     .past-record #past-form { margin-top: 12px; }
@@ -396,18 +397,18 @@
           <div class="past-body">
             <div class="past-datetime">
               <div class="dt-group">
-                <label class="field"><span>月</span><input id="past-month" type="number" inputmode="numeric" aria-label="月"></label>
+                <label class="field"><input id="past-month" type="number" inputmode="numeric" placeholder="MM" aria-label="月"></label>
                 <span class="dt-sep" aria-hidden="true">/</span>
-                <label class="field"><span>日</span><input id="past-day" type="number" inputmode="numeric" aria-label="日"></label>
+                <label class="field"><input id="past-day" type="number" inputmode="numeric" placeholder="DD" aria-label="日"></label>
               </div>
               <div class="dt-group">
-                <label class="field"><span>時</span><input id="past-hour" type="number" inputmode="numeric" aria-label="時"></label>
+                <label class="field"><input id="past-hour" type="number" inputmode="numeric" placeholder="hh" aria-label="時"></label>
                 <span class="dt-sep" aria-hidden="true">：</span>
-                <label class="field"><span>分</span><input id="past-minute" type="number" inputmode="numeric" aria-label="分"></label>
+                <label class="field"><input id="past-minute" type="number" inputmode="numeric" placeholder="mm" aria-label="分"></label>
               </div>
             </div>
             <div id="past-resolved" class="manual-hint"></div>
-            <div id="past-form" hidden>
+            <div id="past-form">
               <div id="past-cards"></div>
               <div class="add-card-row"><button type="button" class="btn-add" id="past-add-card" aria-label="食品を追加" hidden>+</button></div>
               <button class="btn btn-primary btn-block" id="past-submit">記録</button>
@@ -963,7 +964,10 @@
       if (submitBtn) submitBtn.addEventListener('click', function () {
         if (submitting) return;
         var recordedAt = cfg.getRecordedAt ? cfg.getRecordedAt() : undefined;
-        if (cfg.getRecordedAt && !recordedAt) return;
+        if (cfg.getRecordedAt && !recordedAt) {
+          statusEl.textContent = '日付と時間を正しく入力してください';
+          return;
+        }
         var items = getItems();
         if (items.length === 0) {
           statusEl.textContent = '記録する食品を選んでください';
@@ -1104,8 +1108,7 @@
 
     function updatePastForm() {
       var r = readPastInputs();
-      document.getElementById('past-form').hidden = !r;
-      document.getElementById('past-resolved').textContent = r ? r.year + '年の日時として記録します' : '';
+            document.getElementById('past-resolved').textContent = r ? r.year + '年の日時として記録します' : '';
       pastForm.sync();
     }
 
