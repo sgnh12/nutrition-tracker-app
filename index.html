@@ -612,7 +612,7 @@
     document.getElementById('goto-settings').addEventListener('click', function () { switchTab('settings'); });
 
     var NUTRIENT_TO_INTAKE_KEY = { calories: 'calories', protein: 'proteinG', fat: 'fatG', carbs: 'carbsG' };
-    var NUTRIENT_LABEL = { calories: 'カロリー', protein: 'タンパク質', fat: '脂質', carbs: '炭水化物' };
+    var NUTRIENT_LABEL = { overall: '総合', calories: 'カロリー', protein: 'タンパク質', fat: '脂質', carbs: '炭水化物' };
     var NUTRIENT_UNIT = { calories: 'kcal', protein: 'g', fat: 'g', carbs: 'g' };
 
     function renderPieCard(nutrientName, consumed, target, hideEyebrow) {
@@ -986,12 +986,17 @@
         google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getCalendarData(yearMonth);
       }, function (data) {
         var select = document.getElementById('calendar-nutrient-select');
+        var previous = select.value;
         var tracked = data.settings.filter(function (s) { return s.tracked; });
-        select.innerHTML = tracked.map(function (s) {
-          return '<option value="' + escapeHtml(s.nutrientName) + '">' + escapeHtml(NUTRIENT_LABEL[s.nutrientName] || s.nutrientName) + '</option>';
+        // 先頭は「総合」(追跡する栄養素をすべて達成した日)
+        var names = (tracked.length > 0 ? ['overall'] : []).concat(tracked.map(function (s) { return s.nutrientName; }));
+        select.innerHTML = names.map(function (name) {
+          return '<option value="' + escapeHtml(name) + '">' + escapeHtml(NUTRIENT_LABEL[name] || name) + '</option>';
         }).join('');
         if (!data.nutrientName) return;
         setCalendarMonthLabel(yearMonth);
+        // 別の栄養素を選んでいる間に取り直した結果が届いても、選んだ栄養素の表示は変えない
+        if (previous && previous !== data.nutrientName && names.indexOf(previous) >= 0) { select.value = previous; return; }
         if (data.achievement === null) { failHandler(CALENDAR_FAIL_MESSAGE)(); return; }
         renderCalendarGrid(data.achievement);
       }, CALENDAR_FAIL_MESSAGE, { quiet: quiet, loader: 'calendar-grid' });
