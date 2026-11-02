@@ -252,6 +252,7 @@
     .modal-head { padding: 16px 20px 8px; font-weight: 700; font-size: 1.05rem; }
     .modal-body { padding: 4px 20px 16px; overflow-y: auto; }
     #day-modal .modal-body { min-height: 120px; }
+    #day-modal .pie-card { border: 1px solid var(--line); box-shadow: none; }
     #day-modal .meal-group { box-shadow: none; border: 1px solid var(--line); }
     .modal-foot { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
     .modal-foot .btn { flex: 1; }
@@ -572,7 +573,7 @@
     var NUTRIENT_LABEL = { calories: 'カロリー', protein: 'タンパク質', fat: '脂質', carbs: '炭水化物' };
     var NUTRIENT_UNIT = { calories: 'kcal', protein: 'g', fat: 'g', carbs: 'g' };
 
-    function renderPieCard(nutrientName, consumed, target) {
+    function renderPieCard(nutrientName, consumed, target, hideEyebrow) {
       var slices = computePieSlices({ consumed: consumed, target: target });
       var label = NUTRIENT_LABEL[nutrientName] || nutrientName;
       var unit = NUTRIENT_UNIT[nutrientName] || '';
@@ -598,7 +599,7 @@
             '<span class="unit">kcal</span></span></div>' +
           '</div>' +
           '<div class="hero-text">' +
-            '<div class="eyebrow">現在</div>' +
+            (hideEyebrow ? '' : '<div class="eyebrow">現在</div>') +
             '<div class="remain">' + formatNumber(consumed) + '<small>kcal</small></div>' +
             '<div class="detail">目標 ' + formatNumber(target) + ' kcal</div>' +
           '</div>' +
@@ -1009,7 +1010,7 @@
       pies.innerHTML = data.settings.filter(function (s) { return s.tracked; }).map(function (s) {
         var intakeKey = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
         var consumed = data.intake.reduce(function (sum, row) { return sum + Number(row[intakeKey] || 0); }, 0);
-        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue));
+        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), true);
       }).join('');
       list.innerHTML = renderTodayMealsList(data.intake, 'この日の記録はありません。');
     }
