@@ -164,11 +164,14 @@
     .loader.sm { --down: 7px; --up: -8px; gap: 4px; min-height: 28px; }
     .loader i {
       width: 14px; height: 14px; border-radius: 50%; background: #4fb7f5; box-shadow: 0 0 8px rgba(79, 183, 245, 0.4);
-      animation: loader-drop 0.95s infinite; will-change: transform, opacity;
+      animation: loader-drop 1.4s infinite; will-change: transform, opacity;
     }
     .loader.sm i { width: 9px; height: 9px; box-shadow: 0 0 5px rgba(79, 183, 245, 0.4); }
-    .loader i:nth-child(2) { animation-delay: 0.03s; }
-    .loader i:nth-child(3) { animation-delay: 0.1s; }
+    .loader i:nth-child(2) { animation-delay: 0.045s; }
+    .loader i:nth-child(3) { animation-delay: 0.15s; }
+    #calendar-grid > .loader { grid-column: 1 / -1; min-height: 336px; }
+    #day-modal .modal-body.loading { display: flex; flex-direction: column; justify-content: center; min-height: 220px; padding-top: 12px; padding-bottom: 12px; }
+    #day-modal .modal-body.loading .status { margin: 0; }
     @keyframes loader-drop {
       0% { transform: translate3d(0, 0, 0); opacity: 1; animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
       17% { transform: translate3d(0, var(--down), 0); opacity: 0; }
@@ -1047,15 +1050,18 @@
 
     // ---- 日付をタップしたときの、その日の記録 ----
     var dayModalDate = '';
+    var dayBody = document.querySelector('#day-modal .modal-body');
 
     function closeDayModal() {
       dayModalDate = '';
+      dayBody.classList.remove('loading');
       document.getElementById('day-modal').classList.remove('open');
     }
 
     function renderDayDetail(date, data) {
       if (dayModalDate !== date) return; // 閉じた後や、別の日を開いた後に届いた結果は使わない
       document.getElementById('day-status').textContent = '';
+      dayBody.classList.remove('loading');
       var pies = document.getElementById('day-pies');
       var list = document.getElementById('day-list');
       document.getElementById('day-list-title').hidden = false;
@@ -1080,11 +1086,15 @@
       document.getElementById('day-pies').innerHTML = '';
       document.getElementById('day-list').innerHTML = '';
       document.getElementById('day-list-title').hidden = true;
-      document.getElementById('day-status').innerHTML = loaderHtml(true);
+      dayBody.classList.add('loading');
+      document.getElementById('day-status').innerHTML = loaderHtml();
       document.getElementById('day-modal').classList.add('open');
       loadView('day:' + date, function (ok, fail) {
         google.script.run.withSuccessHandler(ok).withFailureHandler(function (err) {
-          if (dayModalDate === date) document.getElementById('day-status').textContent = '読み込みに失敗しました。閉じてもう一度お試しください。';
+          if (dayModalDate === date) {
+            dayBody.classList.remove('loading');
+            document.getElementById('day-status').textContent = '読み込みに失敗しました。閉じてもう一度お試しください。';
+          }
           fail(err);
         }).getDayDetail(date);
       }, function (data) { renderDayDetail(date, data); }, 'その日の記録の読み込みに失敗しました。再度お試しください。');
