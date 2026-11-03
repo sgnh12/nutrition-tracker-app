@@ -222,7 +222,6 @@
     .card-nutr { margin-top: 8px; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
     .food-card .card-nutr[hidden] { display: none; }
     .add-card-row { display: flex; justify-content: center; margin: 4px 0 0; }
-    .add-card-row:has(.btn-add[hidden]) { display: none; }
     .btn-add { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-size: 1.4rem; line-height: 1; font-weight: 700; cursor: pointer; }
     details.registered { margin-top: 0; border-top: none; padding-top: 0; }
     details.registered ul { margin-top: 6px; }
@@ -392,7 +391,7 @@
       <div class="card">
         <h2 class="section-title">食品を記録</h2>
         <div id="record-cards"></div>
-        <div class="add-card-row"><button type="button" class="btn-add" id="record-add-card" aria-label="食品を追加" hidden>+</button></div>
+        <div class="add-card-row"><button type="button" class="btn-add" id="record-add-card" aria-label="食品を追加">+</button></div>
         <button class="btn btn-primary btn-block" id="record-submit">記録</button>
         <div id="record-status" class="status" role="status"></div>
       </div>
@@ -415,7 +414,7 @@
             <div id="past-resolved" class="manual-hint"></div>
             <div id="past-form">
               <div id="past-cards"></div>
-              <div class="add-card-row"><button type="button" class="btn-add" id="past-add-card" aria-label="食品を追加" hidden>+</button></div>
+              <div class="add-card-row"><button type="button" class="btn-add" id="past-add-card" aria-label="食品を追加">+</button></div>
               <button class="btn btn-primary btn-block" id="past-submit">記録</button>
             </div>
             <div id="past-status" class="status" role="status"></div>
@@ -522,7 +521,7 @@
     </div>
     <div class="val-body">
       <div id="validation-cards"></div>
-      <div class="add-card-row"><button type="button" class="btn-add" id="validation-add-card" aria-label="食品を追加" hidden>+</button></div>
+      <div class="add-card-row"><button type="button" class="btn-add" id="validation-add-card" aria-label="食品を追加">+</button></div>
     </div>
   </div>
   <nav class="tabbar" aria-label="メインメニュー">
@@ -825,26 +824,6 @@
     }
 
     var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    // 触覚フィードバック。Androidはvibrate、iPhoneは「switch」属性のチェックボックスを切り替えると小さく震える
-    var hapticSwitch = null;
-    function hapticTick() {
-      try {
-        if (navigator.vibrate && navigator.vibrate(10)) return;
-        if (!hapticSwitch) {
-          var label = document.createElement('label');
-          label.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-          label.setAttribute('aria-hidden', 'true');
-          var input = document.createElement('input');
-          input.type = 'checkbox';
-          input.setAttribute('switch', '');
-          input.tabIndex = -1;
-          label.appendChild(input);
-          document.body.appendChild(label);
-          hapticSwitch = label;
-        }
-        hapticSwitch.click();
-      } catch (err) { /* 触覚が使えない端末では何もしない */ }
-    }
     var HANDLE_ICON_SVG = '<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><path d="M1 2h16M1 7h16M1 12h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
     var MANUAL_OPTION_VALUE = '__manual__';
@@ -923,7 +902,6 @@
           card.querySelector('.card-remove').hidden = i === 0;
         });
         var last = cards[cards.length - 1];
-        addBtn.hidden = !(last && last.querySelector('.food-select').value);
         if (submitBtn) submitBtn.disabled = submitting;
         notifyChange();
       }
@@ -989,9 +967,24 @@
         };
       }
 
+      // 追加するカードは、上のカードの下から高さを広げながら出てくる
       addBtn.addEventListener('click', function () {
-        cardsEl.appendChild(createCard());
+        var card = createCard();
+        cardsEl.appendChild(card);
         sync();
+        var height = card.offsetHeight;
+        var margin = getComputedStyle(card).marginBottom;
+        card.style.cssText = 'overflow:hidden;height:0;padding-top:0;padding-bottom:0;margin-bottom:0;opacity:0;transform:translateY(-14px);border-width:0';
+        card.getBoundingClientRect();
+        card.style.transition = 'height .28s cubic-bezier(.2,.7,.2,1), padding .28s cubic-bezier(.2,.7,.2,1), margin .28s cubic-bezier(.2,.7,.2,1), opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1)';
+        card.style.height = height + 'px';
+        card.style.paddingTop = '';
+        card.style.paddingBottom = '';
+        card.style.borderWidth = '';
+        card.style.marginBottom = margin;
+        card.style.opacity = '1';
+        card.style.transform = 'none';
+        setTimeout(function () { card.style.cssText = ''; }, 320);
       });
 
       if (submitBtn) submitBtn.addEventListener('click', function () {
@@ -1580,7 +1573,6 @@
             var grab = e.clientY - row.getBoundingClientRect().top;
             row.classList.add('dragging');
             row.style.transition = 'none';
-            hapticTick();
             // 他の行を、今の見た目の位置から新しい位置へ滑らかに動かす
             function glide(el, mutate) {
               var first = el.getBoundingClientRect().top;
@@ -1610,8 +1602,7 @@
                 if (next && center > nextMid) glide(next, function () { ul.insertBefore(row, next.nextSibling); });
                 else if (prev && center < prevMid) glide(prev, function () { ul.insertBefore(row, prev); });
                 else break;
-                hapticTick();
-              }
+                  }
               follow(ev.clientY);
             }
             function onEnd() {
