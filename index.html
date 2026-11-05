@@ -288,19 +288,29 @@
 
     /* ---- Tab bar & toast ---- */
     nav.tabbar {
-      position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center;
-      background: rgba(255,255,255,0.94); backdrop-filter: blur(8px);
-      border-top: 1px solid var(--line); padding: 6px 0 calc(env(safe-area-inset-bottom) + 18px);
+      --i: 0;
+      position: fixed; z-index: 20; left: 0; right: 0; margin: 0 auto; width: calc(100% - 32px); max-width: 440px;
+      bottom: calc(env(safe-area-inset-bottom) + 10px); display: flex; padding: 6px; border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.34));
+      backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 8px 24px rgba(16,27,36,0.16), 0 1px 3px rgba(16,27,36,0.08), inset 0 1px 1px rgba(255,255,255,0.9);
+    }
+    nav.tabbar .tab-glass {
+      position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 4); border-radius: 999px;
+      background: rgba(255,255,255,0.45); border: 1.5px solid rgba(16,27,36,0.28);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.9), 0 2px 8px rgba(16,27,36,0.1);
+      transform: translateX(calc(var(--i) * 100%)); transition: transform 0.38s cubic-bezier(0.3, 1.25, 0.5, 1);
+      pointer-events: none;
     }
     nav.tabbar button {
-      flex: 1; max-width: 160px; min-height: 56px; border: none; background: none; cursor: pointer;
+      position: relative; flex: 1; min-width: 0; min-height: 52px; border: none; background: none; cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-      font-size: 0.68rem; font-weight: 500; color: var(--muted);
+      font-size: 0.68rem; font-weight: 500; color: var(--muted); -webkit-tap-highlight-color: transparent;
     }
-    nav.tabbar svg { width: 44px; height: 44px; padding: 9px; border-radius: 50%; transition: background-color 0.15s; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    nav.tabbar svg { width: 40px; height: 40px; padding: 8px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width 0.2s; }
     nav.tabbar button.active { color: var(--ink); font-weight: 700; }
-    nav.tabbar button:hover svg { background: #f1f4f6; }
-    nav.tabbar button.active svg { stroke-width: 2.4; background: #e3e8ec; }
+    nav.tabbar button.active svg { stroke-width: 2.4; }
     .status-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .status-row .status { flex: 1; }
     .icon-btn { flex: none; width: 40px; height: 40px; margin-top: 2px; border: none; border-radius: 50%; background: none; color: var(--ink-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.15s; }
@@ -525,6 +535,7 @@
     </div>
   </div>
   <nav class="tabbar" aria-label="メインメニュー">
+    <span class="tab-glass" aria-hidden="true"></span>
     <button data-tab="dashboard" aria-label="ダッシュボード" title="ダッシュボード" class="active">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8h-8z"/></svg>
     </button>
@@ -651,6 +662,8 @@
       document.querySelectorAll('nav.tabbar button').forEach(function (btn) {
         btn.classList.toggle('active', btn.dataset.tab === tabName);
       });
+      var tabs = Array.prototype.map.call(document.querySelectorAll('nav.tabbar button'), function (b) { return b.dataset.tab; });
+      document.querySelector('nav.tabbar').style.setProperty('--i', Math.max(tabs.indexOf(tabName), 0));
       document.getElementById('validation-open').hidden = tabName !== 'record';
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'record') loadFoodMasterIntoSelect();
@@ -1026,7 +1039,8 @@
     var validationBase = null;
 
     function setTabbarHeight() {
-      var h = document.querySelector('nav.tabbar').offsetHeight;
+      var nav = document.querySelector('nav.tabbar');
+      var h = nav.offsetHeight ? Math.round(window.innerHeight - nav.getBoundingClientRect().top) : 0;
       if (h) document.documentElement.style.setProperty('--tabbar-h', h + 'px');
     }
     setTabbarHeight();
