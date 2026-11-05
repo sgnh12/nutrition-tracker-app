@@ -128,6 +128,10 @@
     .ring .track { stroke: var(--track); }
     .ring .arc { stroke: var(--accent); stroke-linecap: round; animation: ring-in 0.9s cubic-bezier(.2,.7,.2,1); }
     .ring .arc-over { stroke: color-mix(in srgb, var(--accent) 55%, #000); animation-delay: 0.5s; }
+    /* 目標の下限・上限の印。メーターに沿ってカーブした短い帯。下限=背景の灰色より少し濃い色、上限=2周目と同じ色 */
+    .ring .limit-mark { fill: none; stroke-linecap: butt; }
+    .ring .limit-lo { stroke: color-mix(in srgb, var(--track) 80%, #000); }
+    .ring .limit-hi { stroke: color-mix(in srgb, var(--accent) 55%, #000); }
     @keyframes ring-in { from { stroke-dasharray: 0 251.33; } }
     .ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; line-height: 1.1; }
     .ring-center .lead { position: absolute; top: 20%; left: 0; right: 0; text-align: center; font-size: 0.65rem; color: var(--muted); }
@@ -768,7 +772,21 @@
     var NUTRIENT_LABEL = { overall: '総合', calories: 'カロリー', protein: 'タンパク質', fat: '脂質', carbs: '炭水化物' };
     var NUTRIENT_UNIT = { calories: 'kcal', protein: 'g', fat: 'g', carbs: 'g' };
 
-    function renderPieCard(nutrientName, consumed, target, hideEyebrow, compact) {
+    // 下限(以下で達成)・上限(以上で達成)の位置に、メーターに沿った短い帯を描く。限界なし(タンパク質の上限など)は描かない
+    var LIMIT_MARK_WIDTH = 2.2;
+    function limitMarkSvg(setting) {
+      if (!setting || setting.limitPct === null || setting.limitPct === undefined || setting.limitPct === '' || !isFinite(Number(setting.limitPct))) return '';
+      var ratio = Number(setting.limitPct) / 100;
+      var isUpper = setting.criterion === 'min';
+      if (ratio <= 0 || ratio > 2) return '';
+      var pos = ratio > 1 ? ratio - 1 : ratio; // 100%超は2周目の位置
+      if (pos >= 1) pos = 0.9999;
+      var start = Math.max(PIE_CIRCUMFERENCE * pos - LIMIT_MARK_WIDTH / 2, 0);
+      return '<circle class="limit-mark ' + (isUpper ? 'limit-hi' : 'limit-lo') + '" cx="50" cy="50" r="' + PIE_RADIUS + '" stroke-width="11" ' +
+        'stroke-dasharray="0 ' + start + ' ' + LIMIT_MARK_WIDTH + ' ' + PIE_CIRCUMFERENCE + '" transform="rotate(-90 50 50)"></circle>';
+    }
+
+    function renderPieCard(nutrientName, consumed, target, hideEyebrow, compact, setting) {
       var slices = computePieSlices({ consumed: consumed, target: target });
       var label = NUTRIENT_LABEL[nutrientName] || nutrientName;
       var unit = NUTRIENT_UNIT[nutrientName] || '';
@@ -785,6 +803,7 @@
             ? '<circle class="arc arc-over" cx="50" cy="50" r="' + PIE_RADIUS + '" fill="none" stroke-width="11" ' +
               'stroke-dasharray="' + slices.overflowDashArray + '" transform="rotate(-90 50 50)"></circle>'
             : '') +
+        limitMarkSvg(setting) +
         '</svg>';
       var detail = '摂取 ' + formatNumber(consumed) + ' / 目標 ' + formatNumber(target) + ' ' + unit;
       var cls = 'pie-card' + (over ? ' over' : '');
@@ -908,7 +927,7 @@
         var html = data.settings.filter(function (s) { return s.tracked; }).map(function (s) {
           var intakeKey = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
           var consumed = data.todayIntake.reduce(function (sum, row) { return sum + Number(row[intakeKey] || 0); }, 0);
-          return renderPieCard(s.nutrientName, consumed, Number(s.targetValue));
+          return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), false, false, s);
         }).join('');
         document.getElementById('dashboard-pies').innerHTML = html;
         document.getElementById('dashboard-today-list').innerHTML = renderTodayMealsList(data.todayIntake);
@@ -1323,12 +1342,12 @@
         var key = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
         var consumed = validationBase.todayIntake.reduce(function (sum, row) { return sum + Number(row[key] || 0); }, 0) +
           added.reduce(function (sum, item) { return sum + Number(item[key] || 0); }, 0);
-        return { name: s.nutrientName, consumed: consumed, target: Number(s.targetValue) };
+        return { name: s.nutrientName, consumed: consumed, target: Number(s.targetValue), setting: s };
       });
-      var sig = entries.map(function (e) { return e.name + ':' + e.target; }).join(',');
+      var sig = entries.map(function (e) { return e.name + ':' + e.target + ':' + e.setting.criterion + ':' + e.setting.limitPct; }).join(',');
       var rebuild = pies.dataset.sig !== sig;
       var holder = document.createElement('div');
-      holder.innerHTML = entries.map(function (e) { return renderPieCard(e.name, e.consumed, e.target, false, true); }).join('');
+      holder.innerHTML = entries.map(function (e) { return renderPieCard(e.name, e.consumed, e.target, false, true, e.setting); }).join('');
       if (rebuild) {
         pies.innerHTML = holder.innerHTML;
         pies.dataset.sig = sig;
@@ -1352,7 +1371,8 @@
             arc.setAttribute('transform', 'rotate(-90 50 50)');
             arc.style.strokeDasharray = '0 ' + PIE_CIRCUMFERENCE;
             arc.style.opacity = '0';
-            card.querySelector('.ring svg').appendChild(arc);
+            var svg = card.querySelector('.ring svg');
+            svg.insertBefore(arc, svg.querySelector('.limit-mark')); // 限界の印は円弧の上に重ねる
             arc.getBoundingClientRect(); // 初期位置を確定してから動かす
           }
           arc.style.strokeDasharray = dashArray;
@@ -1423,7 +1443,7 @@
       return base.settings.filter(function (s) { return s.tracked; }).map(function (s) {
         var key = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
         var consumed = base.todayIntake.concat(items).reduce(function (sum, row) { return sum + Number(row[key] || 0); }, 0);
-        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), false, true);
+        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), false, true, s);
       }).join('');
     }
 
@@ -1632,7 +1652,7 @@
       pies.innerHTML = data.settings.filter(function (s) { return s.tracked; }).map(function (s) {
         var intakeKey = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
         var consumed = data.intake.reduce(function (sum, row) { return sum + Number(row[intakeKey] || 0); }, 0);
-        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), true);
+        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), true, false, s);
       }).join('');
       list.innerHTML = renderTodayMealsList(data.intake, 'この日の記録はありません。');
     }
