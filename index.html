@@ -284,12 +284,28 @@
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .lead { top: 14%; font-size: 0.65rem; }
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .unit { left: 50%; top: 100%; bottom: auto; transform: translateX(-50%); margin: 1px 0 0; font-size: 0.55rem; }
     .val-pies > .loader { grid-column: 1 / -1; }
+    #menu-chips { position: fixed; left: 16px; right: 80px; bottom: calc(var(--tabbar-h, 90px) + 14px); z-index: 10; display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: none; }
+    #menu-chips::-webkit-scrollbar { display: none; }
+    #menu-chips[hidden] { display: none; }
+    .menu-chip { flex: none; max-width: 220px; height: 26px; padding: 0 12px; line-height: 24px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.7); cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.45)); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+      box-shadow: 0 4px 14px rgba(16,27,36,0.16), inset 0 1px 1px rgba(255,255,255,0.9); animation: chip-in 0.3s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes chip-in { from { opacity: 0; transform: translateY(10px) scale(0.9); } }
+    #menu-modal .val-pies { margin-bottom: 4px; }
+    #menu-modal .menu-sub { margin: 12px 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+    .menu-food { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+    .menu-food:last-child { border-bottom: none; }
+    .menu-food .nutr { display: block; font-size: 0.75rem; color: var(--muted); }
+    .btn-danger { color: #c0392b; }
+    #menu-modal .modal-foot { padding-left: 14px; padding-right: 14px; }
+    #menu-modal .modal-foot .btn { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+    #menu-modal #menu-apply { flex: 1.7; }
     .val-body { max-width: 640px; margin: 0 auto; padding: 8px 16px calc(env(safe-area-inset-bottom) + 24px); }
 
     /* ---- Tab bar & toast ---- */
     nav.tabbar {
       --i: 0;
-      position: fixed; z-index: 20; left: 0; right: 0; margin: 0 auto; width: calc(100% - 32px); max-width: 440px;
+      position: fixed; z-index: 15; left: 0; right: 0; margin: 0 auto; width: calc(100% - 32px); max-width: 440px;
       bottom: calc(env(safe-area-inset-bottom) + 10px); display: flex; padding: 6px; border-radius: 999px;
       background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.34));
       backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -382,6 +398,24 @@
       </div>
       <div class="modal-foot">
         <button type="button" class="btn" id="day-close">閉じる</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="menu-modal" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+    <div class="modal-panel">
+      <div class="modal-head" id="menu-title"></div>
+      <div class="modal-body">
+        <div id="menu-foods"></div>
+        <div class="menu-sub">いま</div>
+        <div id="menu-pies-now" class="val-pies"></div>
+        <div class="menu-sub">このメニューを記録すると</div>
+        <div id="menu-pies-after" class="val-pies"></div>
+        <div id="menu-hint" class="manual-hint"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-danger" id="menu-delete">削除</button>
+        <button type="button" class="btn" id="menu-close">閉じる</button>
+        <button type="button" class="btn btn-primary" id="menu-apply">記録に反映</button>
       </div>
     </div>
   </div>
@@ -532,8 +566,11 @@
     <div class="val-body">
       <div id="validation-cards"></div>
       <div class="add-card-row"><button type="button" class="btn-add" id="validation-add-card" aria-label="食品を追加">+</button></div>
+      <button class="btn btn-primary btn-block" id="validation-save">保存</button>
+      <div id="validation-status" class="status" role="status"></div>
     </div>
   </div>
+  <div id="menu-chips" hidden></div>
   <nav class="tabbar" aria-label="メインメニュー">
     <span class="tab-glass" aria-hidden="true"></span>
     <button data-tab="dashboard" aria-label="ダッシュボード" title="ダッシュボード" class="active">
@@ -655,6 +692,7 @@
         (now.getMonth() + 1) + '月' + now.getDate() + '日(' + WEEKDAYS[now.getDay()] + ')';
     })();
 
+    var currentTab = 'dashboard';
     function switchTab(tabName) {
       document.querySelectorAll('.tab-panel').forEach(function (el) {
         el.classList.toggle('active', el.id === 'tab-' + tabName);
@@ -665,6 +703,8 @@
       var tabs = Array.prototype.map.call(document.querySelectorAll('nav.tabbar button'), function (b) { return b.dataset.tab; });
       document.querySelector('nav.tabbar').style.setProperty('--i', Math.max(tabs.indexOf(tabName), 0));
       document.getElementById('validation-open').hidden = tabName !== 'record';
+      currentTab = tabName;
+      renderMenuChips();
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'record') loadFoodMasterIntoSelect();
       if (tabName === 'calendar') loadCalendarNutrientOptions();
@@ -1030,10 +1070,42 @@
         if (recordedAt) run.recordMeal(items, recordedAt); else run.recordMeal(items);
       });
 
-      return { reset: reset, sync: sync, getItems: getItems };
+      // 入力済みのカードの中身(保存用)。getItems と同じカードだけを対象にする
+      function getState() {
+        return Array.prototype.filter.call(cardsEl.querySelectorAll('.food-card'), buildCardItem).map(function (card) {
+          var v = function (sel) { return card.querySelector(sel).value; };
+          return { sel: v('.food-select'), qty: v('.master-qty'), name: v('.manual-name'), mqty: v('.manual-qty'),
+            cal: v('.manual-calories'), pro: v('.manual-protein'), fat: v('.manual-fat'), carb: v('.manual-carbs') };
+        });
+      }
+
+      // 未選択のカードを消して、保存した内容のカードを後ろに足す。マスタに無くなった食品は飛ばす。反映できた件数を返す
+      function setState(states) {
+        Array.prototype.forEach.call(cardsEl.querySelectorAll('.food-card'), function (card) {
+          if (!card.querySelector('.food-select').value) cardsEl.removeChild(card);
+        });
+        var applied = 0;
+        states.forEach(function (st) {
+          var card = createCard();
+          var select = card.querySelector('.food-select');
+          select.value = st.sel;
+          if (select.value !== st.sel) return;
+          cardsEl.appendChild(card);
+          var set = function (sel, val) { card.querySelector(sel).value = val; };
+          set('.master-qty', st.qty); set('.manual-name', st.name); set('.manual-qty', st.mqty);
+          set('.manual-calories', st.cal); set('.manual-protein', st.pro); set('.manual-fat', st.fat); set('.manual-carbs', st.carb);
+          select.dispatchEvent(new Event('change'));
+          applied++;
+        });
+        if (!cardsEl.querySelector('.food-card')) cardsEl.appendChild(createCard());
+        sync();
+        return applied;
+      }
+
+      return { reset: reset, sync: sync, getItems: getItems, getState: getState, setState: setState };
     }
 
-    createRecordForm({ cardsId: 'record-cards', addId: 'record-add-card', submitId: 'record-submit', statusId: 'record-status' });
+    var recordForm = createRecordForm({ cardsId: 'record-cards', addId: 'record-add-card', submitId: 'record-submit', statusId: 'record-status' });
 
     // ---- 検証: 今日の残りに、食品マスタの食品を足したらどうなるかを見る(何も保存しない) ----
     var validationBase = null;
@@ -1121,6 +1193,104 @@
 
     document.getElementById('validation-open').addEventListener('click', openValidation);
     document.getElementById('validation-close').addEventListener('click', closeValidation);
+
+    // ---- 保存メニュー: 検証した食品を「次の食事の予定」として端末に取っておき、記録に反映する ----
+    var MENU_STORAGE_KEY = 'nt.savedMenus';
+    var savedMenus = [];
+    try { savedMenus = JSON.parse(localStorage.getItem(MENU_STORAGE_KEY) || '[]') || []; } catch (e) { savedMenus = []; }
+    var openMenuId = null;
+
+    function persistMenus() {
+      try { localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(savedMenus)); } catch (e) { /* 保存できなくても画面上では使える */ }
+    }
+
+    function renderMenuChips() {
+      var el = document.getElementById('menu-chips');
+      el.hidden = currentTab !== 'record' || savedMenus.length === 0;
+      el.innerHTML = savedMenus.map(function (m) {
+        return '<button type="button" class="menu-chip" data-id="' + escapeHtml(m.id) + '">' + escapeHtml(m.name) + '</button>';
+      }).join('');
+    }
+
+    function menuName(items) {
+      return items[0].foodName + (items.length > 1 ? ' 他' + (items.length - 1) + '件' : '');
+    }
+
+    document.getElementById('validation-save').addEventListener('click', function () {
+      var statusEl = document.getElementById('validation-status');
+      var items = validationForm.getItems();
+      if (items.length === 0) { statusEl.textContent = '保存する食品を選んでください'; return; }
+      statusEl.textContent = '';
+      savedMenus.push({ id: String(Date.now()), name: menuName(items), items: items, states: validationForm.getState() });
+      persistMenus();
+      closeValidation();
+      renderMenuChips();
+    });
+
+    function menuPiesHtml(base, items) {
+      return base.settings.filter(function (s) { return s.tracked; }).map(function (s) {
+        var key = NUTRIENT_TO_INTAKE_KEY[s.nutrientName];
+        var consumed = base.todayIntake.concat(items).reduce(function (sum, row) { return sum + Number(row[key] || 0); }, 0);
+        return renderPieCard(s.nutrientName, consumed, Number(s.targetValue), false, true);
+      }).join('');
+    }
+
+    function openMenu(id) {
+      var menu = savedMenus.filter(function (m) { return m.id === id; })[0];
+      if (!menu) return;
+      openMenuId = id;
+      document.getElementById('menu-title').textContent = menu.name;
+      document.getElementById('menu-foods').innerHTML = menu.items.map(function (i) {
+        return '<div class="menu-food">' + escapeHtml(i.foodName) + ' × ' + formatNumber(i.quantity) +
+          '<span class="nutr">' + nutrientText(i) + '</span></div>';
+      }).join('');
+      document.getElementById('menu-hint').textContent = '';
+      var now = document.getElementById('menu-pies-now');
+      var after = document.getElementById('menu-pies-after');
+      now.innerHTML = ''; after.innerHTML = '';
+      document.getElementById('menu-modal').classList.add('open');
+      loadView('dashboard', function (ok, fail) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getDashboardData();
+      }, function (base) {
+        if (openMenuId !== id) return;
+        if (!base.profile) {
+          document.getElementById('menu-hint').textContent = 'プロフィールが未設定のため、円グラフは表示できません。';
+          return;
+        }
+        now.innerHTML = menuPiesHtml(base, []);
+        after.innerHTML = menuPiesHtml(base, menu.items);
+      }, '今日の摂取量の読み込みに失敗しました。再度お試しください。', { loader: ['menu-pies-now'] });
+    }
+
+    function closeMenu() {
+      openMenuId = null;
+      document.getElementById('menu-modal').classList.remove('open');
+    }
+
+    function removeMenu(id) {
+      savedMenus = savedMenus.filter(function (m) { return m.id !== id; });
+      persistMenus();
+      closeMenu();
+      renderMenuChips();
+    }
+
+    document.getElementById('menu-chips').addEventListener('click', function (e) {
+      var chip = e.target.closest('.menu-chip');
+      if (chip) openMenu(chip.dataset.id);
+    });
+    document.getElementById('menu-close').addEventListener('click', closeMenu);
+    document.getElementById('menu-delete').addEventListener('click', function () { if (openMenuId) removeMenu(openMenuId); });
+    document.getElementById('menu-apply').addEventListener('click', function () {
+      var menu = savedMenus.filter(function (m) { return m.id === openMenuId; })[0];
+      if (!menu) return;
+      var applied = recordForm.setState(menu.states);
+      var skipped = menu.states.length - applied;
+      removeMenu(menu.id);
+      document.getElementById('record-status').textContent = skipped > 0
+        ? applied + '件を反映しました(食品マスタに無い' + skipped + '件は除きました)'
+        : applied + '件を記録の欄に反映しました';
+    });
+    renderMenuChips();
 
     // 過去の記録: 月日と時分から日時を決める。年は日本時間の今年で、今より先になる場合は去年にする
     var JST_OFFSET_MS = 9 * 60 * 60 * 1000;
