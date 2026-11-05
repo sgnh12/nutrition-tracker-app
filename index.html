@@ -289,10 +289,14 @@
     #menu-chips[hidden] { display: none; }
     .menu-chip { flex: none; max-width: 220px; height: 26px; padding: 0 12px; line-height: 24px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.7); cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.45)); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
-      box-shadow: 0 4px 14px rgba(16,27,36,0.16), inset 0 1px 1px rgba(255,255,255,0.9); animation: chip-in 0.3s cubic-bezier(.2,.9,.3,1.2); }
+      animation: chip-in 0.3s cubic-bezier(.2,.9,.3,1.2); }
     @keyframes chip-in { from { opacity: 0; transform: translateY(10px) scale(0.9); } }
     #menu-modal .val-pies { margin-bottom: 4px; }
-    #menu-modal .menu-sub { margin: 12px 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+    #menu-modal .pie-card { background: none; border: none; box-shadow: none; }
+    #menu-pies-after .label { display: none; }
+    .menu-arrow { display: flex; justify-content: center; padding: 2px 0; color: var(--muted); }
+    #menu-foods { margin-top: 8px; }
+    #validation-name { width: 100%; box-sizing: border-box; margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font: inherit; }
     .menu-food { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
     .menu-food:last-child { border-bottom: none; }
     .menu-food .nutr { display: block; font-size: 0.75rem; color: var(--muted); }
@@ -405,12 +409,11 @@
     <div class="modal-panel">
       <div class="modal-head" id="menu-title"></div>
       <div class="modal-body">
-        <div id="menu-foods"></div>
-        <div class="menu-sub">いま</div>
         <div id="menu-pies-now" class="val-pies"></div>
-        <div class="menu-sub">このメニューを記録すると</div>
+        <div class="menu-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 4v15M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div id="menu-pies-after" class="val-pies"></div>
         <div id="menu-hint" class="manual-hint"></div>
+        <div id="menu-foods"></div>
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-danger" id="menu-delete">削除</button>
@@ -566,6 +569,7 @@
     <div class="val-body">
       <div id="validation-cards"></div>
       <div class="add-card-row"><button type="button" class="btn-add" id="validation-add-card" aria-label="食品を追加">+</button></div>
+      <input id="validation-name" type="text" maxlength="30" placeholder="メニュー名(空欄なら食品名から自動で付けます)" aria-label="メニュー名">
       <button class="btn btn-primary btn-block" id="validation-save">保存</button>
       <div id="validation-status" class="status" role="status"></div>
     </div>
@@ -1221,7 +1225,9 @@
       var items = validationForm.getItems();
       if (items.length === 0) { statusEl.textContent = '保存する食品を選んでください'; return; }
       statusEl.textContent = '';
-      savedMenus.push({ id: String(Date.now()), name: menuName(items), items: items, states: validationForm.getState() });
+      var nameEl = document.getElementById('validation-name');
+      savedMenus.push({ id: String(Date.now()), name: nameEl.value.trim() || menuName(items), items: items, states: validationForm.getState() });
+      nameEl.value = '';
       persistMenus();
       closeValidation();
       renderMenuChips();
