@@ -284,6 +284,30 @@
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .lead { top: 14%; font-size: 0.65rem; }
     .val-pies .pie-card[data-nutrient="calories"] .ring-center .unit { left: 50%; top: 100%; bottom: auto; transform: translateX(-50%); margin: 1px 0 0; font-size: 0.55rem; }
     .val-pies > .loader { grid-column: 1 / -1; }
+    .food-select[hidden] { display: none; }
+    .dd-btn { position: relative; display: block; width: 100%; height: 44px; padding: 0 36px 0 12px; text-align: left; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dd-btn::after { content: ''; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.2s; }
+    .food-card.dd-open .dd-btn::after { transform: rotate(-135deg); margin-top: -2px; }
+    .dd-panel { display: grid; grid-template-rows: 0fr; margin-top: 0; transition: grid-template-rows 0.28s cubic-bezier(.2,.7,.2,1), margin-top 0.28s cubic-bezier(.2,.7,.2,1); }
+    .dd-panel.open { grid-template-rows: 1fr; margin-top: 10px; }
+    .dd-inner { min-height: 0; overflow: hidden; }
+    .dd-tabs { display: flex; gap: 2px; padding-left: 2px; position: relative; z-index: 1; }
+    .dd-tab { margin-bottom: -1.5px; padding: 7px 18px; border: 1.5px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; background: #e6ecf0; color: var(--muted); font-weight: 700; cursor: pointer; }
+    .dd-tab.on { background: var(--surface); border-color: var(--line); color: var(--ink); }
+    .dd-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px; }
+    .dd-panel[data-tab="food"] .dd-list.with-tabs { border-top-left-radius: 0; }
+    .dd-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+    .dd-item:first-child { border-top: none; }
+    .dd-item small { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+    .dd-item.dd-none { color: var(--muted); }
+    .dd-empty { padding: 14px 12px; color: var(--muted); font-size: 0.9rem; }
+    .folder-tabs { display: flex; gap: 2px; position: relative; z-index: 1; }
+    .folder-tab { margin-bottom: -1px; padding: 9px 24px 10px; border: none; border-radius: 12px 12px 0 0; background: #dfe5ea; color: var(--muted); font-weight: 700; cursor: pointer; }
+    .folder-tab.on { background: var(--surface); color: var(--ink); }
+    .folder-body { background: var(--surface); border-radius: 0 var(--radius) var(--radius) var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 0 var(--line); }
+    .folder[data-sel="menu"] .folder-body { border-top-left-radius: var(--radius); }
+    .folder-panel[hidden] { display: none; }
+    .menu-row { cursor: pointer; }
     #menu-chips { position: fixed; left: 16px; right: 80px; bottom: calc(var(--tabbar-h, 90px) + 14px); z-index: 10; display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: none; }
     #menu-chips::-webkit-scrollbar { display: none; }
     #menu-chips[hidden] { display: none; }
@@ -483,23 +507,44 @@
     </section>
 
     <section id="tab-settings" class="tab-panel">
-      <h2 class="section-title">食品マスタ</h2>
-      <div class="card">
-        <div class="field-grid">
-          <label class="field"><span>食品名</span><input id="master-food-name" placeholder="例: プロテイン"></label>
-          <label class="field"><span>単位</span><input id="master-unit-name" placeholder="例: 杯, 個"></label>
-          <label class="field"><span>カロリー (kcal/単位)</span><input id="master-calories" type="number" inputmode="decimal"></label>
-          <label class="field"><span>タンパク質 (g/単位)</span><input id="master-protein" type="number" inputmode="decimal"></label>
-          <label class="field"><span>脂質 (g/単位)</span><input id="master-fat" type="number" inputmode="decimal"></label>
-          <label class="field"><span>炭水化物 (g/単位)</span><input id="master-carbs" type="number" inputmode="decimal"></label>
+      <h2 class="section-title">マスタ管理</h2>
+      <div class="folder" id="master-folder" data-sel="food">
+        <div class="folder-tabs" role="tablist">
+          <button type="button" class="folder-tab on" role="tab" data-k="food">食品</button>
+          <button type="button" class="folder-tab" role="tab" data-k="menu">メニュー</button>
         </div>
-        <button class="btn btn-primary btn-block" id="master-save">食品を登録</button>
-      </div>
-      <div class="card">
-        <details class="manual registered">
-          <summary>登録済み食品一覧</summary>
-          <ul id="master-list"></ul>
-        </details>
+        <div class="folder-body">
+          <div class="folder-panel" id="folder-food">
+            <div class="field-grid">
+              <label class="field"><span>食品名</span><input id="master-food-name" placeholder="例: プロテイン"></label>
+              <label class="field"><span>単位</span><input id="master-unit-name" placeholder="例: 杯, 個"></label>
+              <label class="field"><span>カロリー (kcal/単位)</span><input id="master-calories" type="number" inputmode="decimal"></label>
+              <label class="field"><span>タンパク質 (g/単位)</span><input id="master-protein" type="number" inputmode="decimal"></label>
+              <label class="field"><span>脂質 (g/単位)</span><input id="master-fat" type="number" inputmode="decimal"></label>
+              <label class="field"><span>炭水化物 (g/単位)</span><input id="master-carbs" type="number" inputmode="decimal"></label>
+            </div>
+            <button class="btn btn-primary btn-block" id="master-save">食品を登録</button>
+            <div style="margin-top:14px">
+              <details class="manual registered">
+                <summary>登録済み食品一覧</summary>
+                <ul id="master-list"></ul>
+              </details>
+            </div>
+          </div>
+          <div class="folder-panel" id="folder-menu" hidden>
+            <label class="field"><span>メニュー名</span><input id="menu-master-name" maxlength="30" placeholder="例: 朝食セット"></label>
+            <div id="menu-master-cards" style="margin-top:12px"></div>
+            <div class="add-card-row"><button type="button" class="btn-add" id="menu-master-add-card" aria-label="食品を追加">+</button></div>
+            <button class="btn btn-primary btn-block" id="menu-master-save">メニューを登録</button>
+            <div id="menu-master-status" class="status" role="status"></div>
+            <div style="margin-top:14px">
+              <details class="manual registered">
+                <summary>登録済みメニュー一覧</summary>
+                <ul id="menu-master-list"></ul>
+              </details>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -712,7 +757,7 @@
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'record') loadFoodMasterIntoSelect();
       if (tabName === 'calendar') loadCalendarNutrientOptions();
-      if (tabName === 'settings') loadSettingsPanel();
+      if (tabName === 'settings') { showMasterFolder('food'); loadSettingsPanel(); loadFoodMasterIntoSelect(true); }
     }
 
     document.querySelectorAll('nav.tabbar button').forEach(function (btn) {
@@ -883,6 +928,31 @@
     var REMOVE_ICON_SVG = '<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     var HANDLE_ICON_SVG = '<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><path d="M1 2h16M1 7h16M1 12h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
     var foodMasterCache = [];
+    var menuMasterCache = [];
+    var ddTab = 'food';
+
+    function parseMenus(rows) {
+      return (rows || []).map(function (r) {
+        var states = [];
+        try { states = JSON.parse(r.statesJson); } catch (e) { states = []; }
+        return { name: String(r.menuName), states: Array.isArray(states) ? states : [] };
+      }).filter(function (m) { return m.states.length > 0; });
+    }
+
+    function syncDdLabels() {
+      document.querySelectorAll('.food-card').forEach(function (c) { if (c._ddSync) c._ddSync(); });
+    }
+
+    // 開いている選択欄は、ほかの場所を押したら閉じる
+    document.addEventListener('click', function (e) {
+      var keep = e.target.closest ? e.target.closest('.food-card') : null;
+      document.querySelectorAll('.food-card.dd-open').forEach(function (c) {
+        if (c === keep) return;
+        c.classList.remove('dd-open');
+        c.querySelector('.dd-panel').classList.remove('open');
+        c.querySelector('.dd-btn').setAttribute('aria-expanded', 'false');
+      });
+    });
     var MANUAL_OPTION_VALUE = '__manual__';
 
     function foodOptionsHtml() {
@@ -893,16 +963,17 @@
 
     function loadFoodMasterIntoSelect(quiet) {
       loadView('foods', function (ok, fail) {
-        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getFoodMaster();
-      }, function (foods) {
-        foodMasterCache = foods;
-        document.querySelectorAll('.food-select').forEach(function (select) { select.innerHTML = foodOptionsHtml(); });
-      }, '食品マスタの読み込みに失敗しました。再度お試しください。', {
-        quiet: quiet,
-        canRender: function () {
-          return Array.prototype.every.call(document.querySelectorAll('.food-select'), function (select) { return !select.value; });
-        }
-      });
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getFoodAndMenuMaster();
+      }, function (data) {
+        foodMasterCache = data.foods;
+        menuMasterCache = parseMenus(data.menus);
+        document.querySelectorAll('.food-select').forEach(function (select) {
+          var v = select.value;
+          select.innerHTML = foodOptionsHtml();
+          select.value = v;
+        });
+        syncDdLabels();
+      }, '食品マスタの読み込みに失敗しました。再度お試しください。', { quiet: quiet });
     }
 
     // 食品ごとのカードの入力フォーム。「食品を記録」と「過去の記録追加」で同じ作りを使う
@@ -921,9 +992,11 @@
         card.innerHTML =
           '<button type="button" class="icon-remove card-remove" aria-label="この食品を削除">' + REMOVE_ICON_SVG + '</button>' +
           '<div class="master-box row">' +
-            '<label class="field grow"><span>食品</span><select class="food-select" aria-label="食品">' + foodOptionsHtml() + '</select></label>' +
+            '<div class="field grow"><span>食品</span><select class="food-select" aria-label="食品" hidden>' + foodOptionsHtml() + '</select>' +
+              '<button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false"><span class="dd-label"></span></button></div>' +
             '<label class="field qty"><span>個数</span><input class="master-qty" type="number" inputmode="decimal" step="0.1" value="1" aria-label="個数"></label>' +
           '</div>' +
+          '<div class="dd-panel"><div class="dd-inner"></div></div>' +
           '<div class="manual-box" hidden>' +
             '<div class="name-qty">' +
               '<label class="field grow"><span>食品名</span><input class="manual-name" placeholder="例: コンビニのおにぎり"></label>' +
@@ -948,6 +1021,65 @@
         card.querySelector('.card-remove').addEventListener('click', function () {
           card.parentNode.removeChild(card);
           sync();
+        });
+
+        // 食品の選択欄: 押すとその場で下に伸びて、「食品」「メニュー」を切り替えて選べる
+        var ddBtn = card.querySelector('.dd-btn');
+        var ddPanel = card.querySelector('.dd-panel');
+        var ddInner = card.querySelector('.dd-inner');
+        var ddSelect = card.querySelector('.food-select');
+        var withMenus = cfg.allowMenus !== false;
+        function syncDdLabel() {
+          var opt = ddSelect.options[ddSelect.selectedIndex];
+          card.querySelector('.dd-label').textContent = ddSelect.value && opt ? opt.text : '';
+        }
+        card._ddSync = syncDdLabel;
+        ddSelect.addEventListener('change', syncDdLabel);
+        function renderDd() {
+          var tab = withMenus ? ddTab : 'food';
+          var html = withMenus
+            ? '<div class="dd-tabs"><button type="button" class="dd-tab' + (tab === 'food' ? ' on' : '') + '" data-k="food">食品</button>' +
+              '<button type="button" class="dd-tab' + (tab === 'menu' ? ' on' : '') + '" data-k="menu">メニュー</button></div>'
+            : '';
+          var rows;
+          if (tab === 'food') {
+            rows = '<li class="dd-item dd-none" data-v="">未選択</li>' +
+              '<li class="dd-item" data-v="' + MANUAL_OPTION_VALUE + '">-- 手入力追加 --</li>' +
+              foodMasterCache.map(function (f) {
+                return '<li class="dd-item" data-v="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + '<small>1' + escapeHtml(f.unitName) + '</small></li>';
+              }).join('');
+          } else {
+            rows = menuMasterCache.length === 0 ? '<li class="dd-empty">登録済みのメニューはありません。設定タブのマスタ管理で登録できます。</li>'
+              : menuMasterCache.map(function (m, i) {
+                return '<li class="dd-item" data-m="' + i + '">' + escapeHtml(m.name) + '<small>' + m.states.length + '品</small></li>';
+              }).join('');
+          }
+          ddPanel.dataset.tab = tab;
+          ddInner.innerHTML = html + '<ul class="dd-list' + (withMenus ? ' with-tabs' : '') + '" role="listbox">' + rows + '</ul>';
+        }
+        function setDdOpen(open) {
+          ddPanel.classList.toggle('open', open);
+          card.classList.toggle('dd-open', open);
+          ddBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        ddBtn.addEventListener('click', function () {
+          var open = !ddPanel.classList.contains('open');
+          if (open) renderDd();
+          setDdOpen(open);
+        });
+        ddPanel.addEventListener('click', function (e) {
+          var tabBtn = e.target.closest('.dd-tab');
+          if (tabBtn) { ddTab = tabBtn.dataset.k; renderDd(); e.stopPropagation(); return; } // 作り直した後は押した要素が外れるので、外側を押した扱いにしない
+          var item = e.target.closest('.dd-item');
+          if (!item) return;
+          if (item.dataset.m !== undefined) {
+            applyMenuToCard(card, menuMasterCache[Number(item.dataset.m)].states);
+            return;
+          }
+          ddSelect.value = item.dataset.v;
+          if (ddSelect.value !== item.dataset.v) ddSelect.value = '';
+          ddSelect.dispatchEvent(new Event('change'));
+          setDdOpen(false);
         });
         return card;
       }
@@ -1083,27 +1215,48 @@
         });
       }
 
-      // 未選択のカードを消して、保存した内容のカードを後ろに足す。マスタに無くなった食品は飛ばす。反映できた件数を返す
+      // 保存した内容から、食品カードを作る。マスタに無くなった食品は作らない(null)
+      function makeCardFromState(st) {
+        var card = createCard();
+        var select = card.querySelector('.food-select');
+        select.value = st.sel;
+        if (select.value !== st.sel) return null;
+        var set = function (sel, val) { card.querySelector(sel).value = val; };
+        set('.master-qty', st.qty); set('.manual-name', st.name); set('.manual-qty', st.mqty);
+        set('.manual-calories', st.cal); set('.manual-protein', st.pro); set('.manual-fat', st.fat); set('.manual-carbs', st.carb);
+        select.dispatchEvent(new Event('change'));
+        return card;
+      }
+
+      // 未選択のカードを消して、保存した内容のカードを後ろに足す。反映できた件数を返す
       function setState(states) {
         Array.prototype.forEach.call(cardsEl.querySelectorAll('.food-card'), function (card) {
           if (!card.querySelector('.food-select').value) cardsEl.removeChild(card);
         });
         var applied = 0;
         states.forEach(function (st) {
-          var card = createCard();
-          var select = card.querySelector('.food-select');
-          select.value = st.sel;
-          if (select.value !== st.sel) return;
+          var card = makeCardFromState(st);
+          if (!card) return;
           cardsEl.appendChild(card);
-          var set = function (sel, val) { card.querySelector(sel).value = val; };
-          set('.master-qty', st.qty); set('.manual-name', st.name); set('.manual-qty', st.mqty);
-          set('.manual-calories', st.cal); set('.manual-protein', st.pro); set('.manual-fat', st.fat); set('.manual-carbs', st.carb);
-          select.dispatchEvent(new Event('change'));
           applied++;
         });
         if (!cardsEl.querySelector('.food-card')) cardsEl.appendChild(createCard());
         sync();
         return applied;
+      }
+
+      // メニューを選んだカードを、メニューの食品のカードに置き換える
+      function applyMenuToCard(card, states) {
+        var applied = 0;
+        states.forEach(function (st) {
+          var next = makeCardFromState(st);
+          if (!next) return;
+          cardsEl.insertBefore(next, card);
+          applied++;
+        });
+        if (applied) cardsEl.removeChild(card);
+        else if (statusEl) statusEl.textContent = 'メニューの食品が食品マスタに見つかりませんでした';
+        sync();
       }
 
       return { reset: reset, sync: sync, getItems: getItems, getState: getState, setState: setState };
@@ -1508,9 +1661,10 @@
         renderProfile(data.profile);
         renderNutrientSettingsList(data.settings);
         renderFoodMasterList(data.foods);
+        renderMenuMasterList(data.menus);
       }, '設定の読み込みに失敗しました。再度お試しください。', {
         quiet: quiet,
-        loader: ['master-list', 'nutrient-settings-list'],
+        loader: ['master-list', 'menu-master-list', 'nutrient-settings-list'],
         // 入力中の欄がある間は、取り直した内容で書き換えない
         canRender: function () {
           var a = document.activeElement;
@@ -1811,6 +1965,7 @@
                 select.innerHTML = foodOptionsHtml();
                 select.value = v;
               });
+              syncDdLabels();
               invalidateViews();
               google.script.run.withSuccessHandler(function () { invalidateViews(); })
                 .withFailureHandler(function () { failHandler('並べ替えの保存に失敗しました。再度お試しください。')(); loadFoodMasterList(); })
@@ -1824,7 +1979,7 @@
         document.querySelectorAll('.master-delete').forEach(function (btn) {
           btn.addEventListener('click', function () {
             invalidateViews();
-            google.script.run.withSuccessHandler(function () { invalidateViews(); loadFoodMasterList(); }).withFailureHandler(failHandler('食品の削除に失敗しました。再度お試しください。')).deleteFoodMasterItem(btn.dataset.name);
+            google.script.run.withSuccessHandler(function () { invalidateViews(); loadFoodMasterList(); loadFoodMasterIntoSelect(true); }).withFailureHandler(failHandler('食品の削除に失敗しました。再度お試しください。')).deleteFoodMasterItem(btn.dataset.name);
           });
         });
     }
@@ -1847,6 +2002,7 @@
         btn.disabled = false;
         invalidateViews();
         loadFoodMasterList();
+        loadFoodMasterIntoSelect(true);
         document.getElementById('master-food-name').value = '';
         document.getElementById('master-unit-name').value = '';
         document.getElementById('master-calories').value = '';
@@ -1857,6 +2013,84 @@
         btn.disabled = false;
         failHandler('食品の保存に失敗しました。再度お試しください。')();
       }).saveFoodMasterItem(item);
+    });
+
+    // ---- マスタ管理: 食品 / メニューの切り替え ----
+    function showMasterFolder(key) {
+      var folder = document.getElementById('master-folder');
+      folder.dataset.sel = key;
+      folder.querySelectorAll('.folder-tab').forEach(function (t) { t.classList.toggle('on', t.dataset.k === key); });
+      document.getElementById('folder-food').hidden = key !== 'food';
+      document.getElementById('folder-menu').hidden = key !== 'menu';
+    }
+    document.querySelectorAll('.folder-tab').forEach(function (t) {
+      t.addEventListener('click', function () { showMasterFolder(t.dataset.k); });
+    });
+
+    // ---- メニューマスタ ----
+    var menuForm = createRecordForm({ cardsId: 'menu-master-cards', addId: 'menu-master-add-card', showNutrients: true, allowMenus: false, statusId: 'menu-master-status' });
+
+    function loadMenuMasterList() {
+      google.script.run.withSuccessHandler(renderMenuMasterList)
+        .withFailureHandler(failHandler('メニューの読み込みに失敗しました。再度お試しください。')).getMenuMaster();
+    }
+
+    function renderMenuMasterList(rows) {
+      var ul = document.getElementById('menu-master-list');
+      var menus = parseMenus(rows);
+      if (menus.length === 0) {
+        ul.innerHTML = '<li class="muted">登録済みのメニューはまだありません。</li>';
+        return;
+      }
+      ul.innerHTML = menus.map(function (m, i) {
+        var foods = m.states.map(function (st) { return st.sel === MANUAL_OPTION_VALUE ? (st.name || '手入力') : st.sel; }).join('、');
+        return '<li class="master-row menu-row" data-name="' + escapeHtml(m.name) + '" style="--i:' + Math.min(i, 12) + '">' +
+          '<div class="item-text"><div class="item-line"><span class="item-name">' + escapeHtml(m.name) + '</span></div>' +
+          '<div class="item-nutr">' + escapeHtml(foods) + '</div></div>' +
+          '<button type="button" data-name="' + escapeHtml(m.name) + '" class="icon-remove menu-master-delete" aria-label="' + escapeHtml(m.name) + 'を削除">' + REMOVE_ICON_SVG + '</button></li>';
+      }).join('');
+      ul.querySelectorAll('.menu-row').forEach(function (li) {
+        li.addEventListener('click', function (e) {
+          if (e.target.closest('.menu-master-delete')) return;
+          var m = menus.filter(function (x) { return x.name === li.dataset.name; })[0];
+          if (!m) return;
+          document.getElementById('menu-master-name').value = m.name;
+          menuForm.reset();
+          menuForm.setState(m.states);
+          document.getElementById('menu-master-status').textContent = '「' + m.name + '」を編集中です。登録すると上書きします';
+          document.getElementById('menu-master-name').scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+      });
+      ul.querySelectorAll('.menu-master-delete').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          invalidateViews();
+          google.script.run.withSuccessHandler(function () { invalidateViews(); loadMenuMasterList(); loadFoodMasterIntoSelect(true); })
+            .withFailureHandler(failHandler('メニューの削除に失敗しました。再度お試しください。')).deleteMenuMasterItem(btn.dataset.name);
+        });
+      });
+    }
+
+    document.getElementById('menu-master-save').addEventListener('click', function () {
+      var statusEl = document.getElementById('menu-master-status');
+      var name = document.getElementById('menu-master-name').value.trim();
+      var states = menuForm.getState();
+      if (!name) { statusEl.textContent = 'メニュー名を入力してください'; return; }
+      if (states.length === 0) { statusEl.textContent = 'メニューに入れる食品を選んでください'; return; }
+      var btn = document.getElementById('menu-master-save');
+      btn.disabled = true;
+      invalidateViews();
+      google.script.run.withSuccessHandler(function () {
+        btn.disabled = false;
+        invalidateViews();
+        loadMenuMasterList();
+        loadFoodMasterIntoSelect(true);
+        document.getElementById('menu-master-name').value = '';
+        menuForm.reset();
+        statusEl.textContent = '「' + name + '」を登録しました';
+      }).withFailureHandler(function () {
+        btn.disabled = false;
+        failHandler('メニューの保存に失敗しました。再度お試しください。')();
+      }).saveMenuMasterItem({ menuName: name, statesJson: JSON.stringify(states) });
     });
 
     loadDashboard();
