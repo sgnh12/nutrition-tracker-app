@@ -929,6 +929,7 @@
     var foodMasterCache = [];
     var menuMasterCache = [];
     var ddTab = 'food';
+    var masterLoaded = false; // 食品マスタをGASから受け取り済みか
 
     function parseMenus(rows) {
       return (rows || []).map(function (r) {
@@ -963,12 +964,15 @@
       }, function (data) {
         foodMasterCache = data.foods;
         menuMasterCache = parseMenus(data.menus);
+        masterLoaded = true;
         document.querySelectorAll('.food-select').forEach(function (select) {
           var v = select.value;
           select.innerHTML = foodOptionsHtml();
           select.value = v;
         });
         syncDdLabels();
+        // 一覧を開いたまま届いた場合は、届いた内容で描き直す
+        document.querySelectorAll('.food-card.dd-open').forEach(function (c) { if (c._ddRefresh) c._ddRefresh(); });
       }, '食品マスタの読み込みに失敗しました。再度お試しください。', { quiet: quiet });
     }
 
@@ -1043,9 +1047,9 @@
               '<li class="dd-item" data-v="' + MANUAL_OPTION_VALUE + '">-- 手入力追加 --</li>' +
               foodMasterCache.map(function (f) {
                 return '<li class="dd-item" data-v="' + escapeHtml(f.foodName) + '">' + escapeHtml(f.foodName) + '<small>1' + escapeHtml(f.unitName) + '</small></li>';
-              }).join('');
+              }).join('') + (masterLoaded ? '' : '<li class="dd-empty">食品を読み込み中です…</li>');
           } else {
-            rows = menuMasterCache.length === 0 ? '<li class="dd-empty">登録済みのメニューはありません。設定タブのマスタ管理で登録できます。</li>'
+            rows = !masterLoaded ? '<li class="dd-empty">メニューを読み込み中です…</li>' : menuMasterCache.length === 0 ? '<li class="dd-empty">登録済みのメニューはありません。設定タブのマスタ管理で登録できます。</li>'
               : menuMasterCache.map(function (m, i) {
                 return '<li class="dd-item" data-m="' + i + '">' + escapeHtml(m.name) + '<small>' + m.states.length + '品</small></li>';
               }).join('');
@@ -1086,6 +1090,11 @@
           }
         }
         card._ddSet = setDdOpen;
+        card._ddRefresh = function () {
+          renderDd();
+          fitDdList();
+          ddPanel.style.height = 'auto';
+        };
         ddBtn.addEventListener('click', function () {
           var open = !ddPanel.classList.contains('open');
           if (open) renderDd();
