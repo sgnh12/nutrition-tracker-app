@@ -288,13 +288,12 @@
     .dd-btn { position: relative; display: block; width: 100%; height: 44px; padding: 0 36px 0 12px; text-align: left; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dd-btn::after { content: ''; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform 0.2s; }
     .food-card.dd-open .dd-btn::after { transform: rotate(-135deg); margin-top: -2px; }
-    .dd-panel { display: grid; grid-template-rows: 0fr; margin-top: 0; transition: grid-template-rows 0.28s cubic-bezier(.2,.7,.2,1), margin-top 0.28s cubic-bezier(.2,.7,.2,1); }
-    .dd-panel.open { grid-template-rows: 1fr; margin-top: 10px; }
-    .dd-inner { min-height: 0; overflow: hidden; }
-    .dd-tabs { display: flex; gap: 2px; padding-left: 2px; position: relative; z-index: 1; }
+    .dd-panel { height: 0; overflow: hidden; margin-top: 0; transition: height 0.28s cubic-bezier(.2,.7,.2,1), margin-top 0.28s cubic-bezier(.2,.7,.2,1); }
+    .dd-panel.open { margin-top: 10px; }
+    .dd-tabs { display: flex; gap: 2px; position: relative; z-index: 1; }
     .dd-tab { margin-bottom: -1.5px; padding: 7px 18px; border: 1.5px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; background: #e6ecf0; color: var(--muted); font-weight: 700; cursor: pointer; }
     .dd-tab.on { background: var(--surface); border-color: var(--line); color: var(--ink); }
-    .dd-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px; }
+    .dd-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px; }
     .dd-panel[data-tab="food"] .dd-list.with-tabs { border-top-left-radius: 0; }
     .dd-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--line); cursor: pointer; }
     .dd-item:first-child { border-top: none; }
@@ -947,10 +946,7 @@
     document.addEventListener('click', function (e) {
       var keep = e.target.closest ? e.target.closest('.food-card') : null;
       document.querySelectorAll('.food-card.dd-open').forEach(function (c) {
-        if (c === keep) return;
-        c.classList.remove('dd-open');
-        c.querySelector('.dd-panel').classList.remove('open');
-        c.querySelector('.dd-btn').setAttribute('aria-expanded', 'false');
+        if (c !== keep && c._ddSet) c._ddSet(false);
       });
     });
     var MANUAL_OPTION_VALUE = '__manual__';
@@ -1057,11 +1053,39 @@
           ddPanel.dataset.tab = tab;
           ddInner.innerHTML = html + '<ul class="dd-list' + (withMenus ? ' with-tabs' : '') + '" role="listbox">' + rows + '</ul>';
         }
+        // 一覧は、Validationボタンの上まで伸ばしてよい。それより長ければ一覧の中でスクロールする
+        function fitDdList() {
+          var list = ddInner.querySelector('.dd-list');
+          if (!list) return;
+          var tabbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 90;
+          var limitBottom = window.innerHeight - tabbarH - 12 - 52 - 8;
+          list.style.maxHeight = '';
+          var top = list.getBoundingClientRect().top + (ddPanel.classList.contains('open') ? 0 : 10);
+          list.style.maxHeight = Math.max(limitBottom - top, 160) + 'px';
+        }
         function setDdOpen(open) {
-          ddPanel.classList.toggle('open', open);
           card.classList.toggle('dd-open', open);
           ddBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if (open) {
+            ddPanel.classList.add('open');
+            fitDdList();
+            ddPanel.style.height = ddInner.offsetHeight + 'px';
+            setTimeout(function () {
+              if (!ddPanel.classList.contains('open')) return;
+              ddPanel.style.height = 'auto';
+              // 一覧の下がValidationボタンに隠れるときは、ページを少し送る
+              var tabbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 90;
+              var excess = ddPanel.getBoundingClientRect().bottom - (window.innerHeight - tabbarH - 12 - 52 - 8);
+              if (excess > 0) window.scrollBy({ top: Math.min(excess, Math.max(ddBtn.getBoundingClientRect().top - 12, 0)), behavior: 'smooth' });
+            }, 300);
+          } else {
+            ddPanel.style.height = ddPanel.offsetHeight + 'px';
+            ddPanel.getBoundingClientRect();
+            ddPanel.classList.remove('open');
+            ddPanel.style.height = '0px';
+          }
         }
+        card._ddSet = setDdOpen;
         ddBtn.addEventListener('click', function () {
           var open = !ddPanel.classList.contains('open');
           if (open) renderDd();
@@ -1069,7 +1093,7 @@
         });
         ddPanel.addEventListener('click', function (e) {
           var tabBtn = e.target.closest('.dd-tab');
-          if (tabBtn) { ddTab = tabBtn.dataset.k; renderDd(); e.stopPropagation(); return; } // 作り直した後は押した要素が外れるので、外側を押した扱いにしない
+          if (tabBtn) { ddTab = tabBtn.dataset.k; renderDd(); fitDdList(); e.stopPropagation(); return; } // 作り直した後は押した要素が外れるので、外側を押した扱いにしない
           var item = e.target.closest('.dd-item');
           if (!item) return;
           if (item.dataset.m !== undefined) {
